@@ -387,13 +387,13 @@ function convertSubToLesson(sub: CourseSyllabusSubModule): Lesson {
 export default function StudentCoursePlayerPage() {
   const params = useParams();
   const rawSlug = params?.slug;
-  const slug = (typeof rawSlug === "string" ? rawSlug : Array.isArray(rawSlug) ? rawSlug[0] : "fullstack-web-development") || "fullstack-web-development";
+  const slug = (typeof rawSlug === "string" ? rawSlug : Array.isArray(rawSlug) ? rawSlug[0] : "") || "";
 
   const toastObj = useToast();
   const toast = toastObj?.toast || directToast;
 
   const [rawCourseData, setRawCourseData] = useState<any>(null);
-  const [courseTitle, setCourseTitle] = useState(slug.replace(/-/g, " "));
+  const [courseTitle, setCourseTitle] = useState(slug ? slug.replace(/-/g, " ") : "Course");
   const [courseCategory, setCourseCategory] = useState("General");
   const [courseInstructor, setCourseInstructor] = useState("Lead Technical Trainer");
   const [modules, setModules] = useState<CourseSyllabusModule[]>([]);
@@ -401,13 +401,9 @@ export default function StudentCoursePlayerPage() {
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
 
-  const [activeLesson, setActiveLesson] = useState<Lesson>({
-    id: "l1",
-    title: "1.1 Introduction & Setup",
-    duration: "45 mins",
-    type: "video",
-    completed: false,
-  });
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [notFound, setNotFound] = useState<boolean>(false);
 
   // Safe event-driven progress subscriber
   const progressVersion = useCourseProgressVersion();
@@ -451,6 +447,13 @@ export default function StudentCoursePlayerPage() {
 
   useEffect(() => {
     async function fetchCourse() {
+      if (!slug) {
+        setIsLoading(false);
+        setNotFound(true);
+        return;
+      }
+      setIsLoading(true);
+      setNotFound(false);
       try {
         let courseMatch: any = null;
 
@@ -478,7 +481,7 @@ export default function StudentCoursePlayerPage() {
                 c.slug === slug ||
                 c.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") === slug.toLowerCase() ||
                 c.id?.toLowerCase() === slug.toLowerCase()
-              ) || data.courses[0];
+              );
             }
           }
         }
@@ -494,14 +497,14 @@ export default function StudentCoursePlayerPage() {
                 c.slug === slug ||
                 c.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") === slug.toLowerCase() ||
                 c.id?.toLowerCase() === slug.toLowerCase()
-              ) || data.courses[0];
+              );
             }
           }
         }
 
         if (courseMatch) {
           setRawCourseData(courseMatch);
-          setCourseTitle(courseMatch.title);
+          setCourseTitle(courseMatch.title || "Course Details");
           setCourseCategory(courseMatch.category || "General");
           setCourseInstructor(courseMatch.instructor || "Lead Technical Trainer");
           const norm = normalizeCourseModules(courseMatch.modules);
@@ -535,10 +538,17 @@ export default function StudentCoursePlayerPage() {
 
           if (targetLesson) {
             setActiveLesson(convertSubToLesson(targetLesson));
+          } else {
+            setActiveLesson(null);
           }
+        } else {
+          setNotFound(true);
         }
       } catch (err) {
         console.error("Failed to load course", err);
+        setNotFound(true);
+      } finally {
+        setIsLoading(false);
       }
     }
     fetchCourse();
@@ -597,6 +607,7 @@ export default function StudentCoursePlayerPage() {
   };
 
   const handleNextLesson = () => {
+    if (!activeLesson) return;
     for (let m = 0; m < modules.length; m++) {
       const mod = modules[m];
       if (!mod) continue;
@@ -664,7 +675,7 @@ export default function StudentCoursePlayerPage() {
         body: JSON.stringify({
           language: selectedLanguage,
           code: codeContent,
-          stdin: activeLesson.codingData?.sampleInput ?? "",
+          stdin: activeLesson?.codingData?.sampleInput ?? "",
         }),
       });
 
@@ -686,7 +697,71 @@ export default function StudentCoursePlayerPage() {
     }
   };
 
-  const currentQuizList = activeLesson.quizQuestionsList || [];
+  if (isLoading) {
+    return (
+      <div className="w-full space-y-6 pb-12 animate-pulse">
+        <div className="h-28 bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-6 flex flex-col justify-between">
+          <div className="h-4 w-32 bg-slate-200 dark:bg-zinc-800 rounded" />
+          <div className="h-7 w-64 bg-slate-200 dark:bg-zinc-800 rounded" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-[420px] bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800" />
+          <div className="h-[420px] bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800" />
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !rawCourseData) {
+    return (
+      <div className="w-full min-h-[60vh] flex flex-col items-center justify-center text-center p-8 space-y-4">
+        <div className="h-14 w-14 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xs">
+          <BookOpen className="h-7 w-7" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Course Not Found</h2>
+          <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-md">
+            The requested course could not be located in your enrolled curriculum or database.
+          </p>
+        </div>
+        <Link href="/student/my-courses">
+          <Button variant="outline" className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> Back to My Courses
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (!activeLesson) {
+    return (
+      <div className="w-full space-y-6 pb-12">
+        <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-6 shadow-xs">
+          <Link
+            href="/student/my-courses"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+            <span>Back to My Courses</span>
+          </Link>
+          <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight mt-2">
+            {courseTitle}
+          </h1>
+        </div>
+        <div className="w-full min-h-[45vh] flex flex-col items-center justify-center text-center p-8 space-y-3 bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-xs">
+          <div className="h-12 w-12 rounded-xl bg-slate-100 dark:bg-zinc-800/80 flex items-center justify-center text-slate-400">
+            <BookOpen className="h-6 w-6" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-zinc-200">No Lessons Published Yet</h3>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">
+            The curriculum modules and lessons for this course are currently being organized. Please check back soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuizList = activeLesson?.quizQuestionsList || [];
   const currentQuizQ = currentQuizList[currentQuizQIdx] || currentQuizList[0];
 
   return (

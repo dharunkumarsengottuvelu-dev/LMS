@@ -1500,25 +1500,28 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   if (viewState === "wizard") {
     return (
       <div className="space-y-6 w-full">
-        <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex-wrap">
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 px-3 font-bold text-xs rounded-xl shrink-0 mt-0.5 sm:mt-0">
+              <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Create New Proctored Exam</h1>
-              <p className="text-xs text-[#6B7280]">Define basics and security rules. You can add questions later.</p>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Create New Proctored Exam</h1>
+              <p className="text-xs text-[#6B7280] mt-0.5">Define basics and security rules. You can add questions later.</p>
             </div>
           </div>
-          <AutoSaveBadge isSaved={isSavedExamDraft} lastSaved={lastSavedExamDraft} />
+          <div className="shrink-0 self-start sm:self-center">
+            <AutoSaveBadge isSaved={isSavedExamDraft} lastSaved={lastSavedExamDraft} />
+          </div>
         </div>
 
         <form onSubmit={handleCreateTest} className="space-y-6">
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
-              <div>
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 sm:p-7 md:p-8 rounded-2xl shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-[#2563EB]" /> General Details & MNC Scheduling
+                  <FileText className="h-4 w-4 text-[#2563EB] shrink-0" />
+                  <span>General Details & MNC Scheduling</span>
                 </h3>
                 <p className="text-xs text-[#6B7280] mt-0.5">
                   Configure basic information and choose an enterprise scheduling strategy.
@@ -1529,9 +1532,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 variant="outline"
                 size="sm"
                 onClick={handleClearAllSchedule}
-                className="h-8 text-xs font-bold border-dashed text-[#6B7280] hover:text-[#DC2626] hover:border-[#DC2626]/40"
+                className="h-8 px-3 text-xs font-bold border-dashed text-[#6B7280] hover:text-[#DC2626] hover:border-[#DC2626]/40 shrink-0 w-full sm:w-auto rounded-xl"
               >
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Clear Schedule (Make On-Demand)
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Clear Schedule (Make On-Demand)</span>
+                <span className="sm:hidden">Clear Schedule (On-Demand)</span>
               </Button>
             </div>
 
@@ -1590,7 +1595,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               {/* Passing Criteria & Qualifying Mark (Toggleable ON / OFF) */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="space-y-0.5">
                     <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
                       <Award className="h-4 w-4 text-[#2563EB]" /> Passing Criteria & Qualification Threshold
@@ -1653,7 +1658,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               {/* MNC Enterprise Scheduling Modes */}
               <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
                     <CalendarDays className="h-4 w-4 text-[#2563EB]" /> Scheduling & Timing Model (Optional & Fully Configurable)
                   </label>
@@ -1678,7 +1683,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                         <Zap className="h-4 w-4 text-[#2563EB]" /> On-Demand (Anytime)
                       </span>
@@ -1698,7 +1703,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                         <CalendarRange className="h-4 w-4 text-[#2563EB]" /> Validity Date Window
                       </span>
@@ -1721,7 +1726,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                         <Clock className="h-4 w-4 text-[#2563EB]" /> Synchronized Slot
                       </span>
@@ -1750,7 +1755,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                 {newScheduleMode === "window" && (
                   <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4 animate-in fade-in">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Validity Range Configuration (All Optional)</span>
                       <div className="flex items-center gap-2">
                         <Button
@@ -1776,7 +1781,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Start Date (Optional)</label>
                           <div className="flex items-center gap-1">
                             <button type="button" onClick={() => setNewStartDate(getTodayString())} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
@@ -1806,7 +1811,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       </div>
 
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">End / Expiry Date (Optional)</label>
                           <div className="flex items-center gap-1">
                             <button type="button" onClick={() => setNewEndDate(getNextWeekString())} className="text-[10px] text-[#2563EB] hover:underline">+7d</button>
@@ -1839,7 +1844,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Daily Open Time */}
                       <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Daily Open Time (Optional)</label>
                           {newStartTime ? (
                             <button
@@ -1892,7 +1897,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                       {/* Daily Close Time */}
                       <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Daily Close Time (Optional)</label>
                           {newEndTime ? (
                             <button
@@ -1948,7 +1953,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                 {newScheduleMode === "scheduled" && (
                   <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4 animate-in fade-in">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Slot Timing Parameters</span>
                         <p className="text-[11px] text-[#6B7280]">Select date and time, or clear anytime to modify.</p>
@@ -1967,7 +1972,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Exam Date */}
                       <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Date</label>
                           {newDate ? (
                             <button type="button" onClick={() => setNewDate("")} className="text-[10px] font-bold text-[#DC2626] hover:underline flex items-center gap-0.5">
@@ -2007,7 +2012,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                       {/* Start Time */}
                       <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Start Time</label>
                           {newStartTime ? (
                             <button
@@ -2068,7 +2073,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                       {/* End Time */}
                       <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">End Time</label>
                           <div className="flex items-center gap-1">
                             {newStartTime && (
@@ -2147,7 +2152,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </div>
           </Card>
 
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 sm:p-7 md:p-8 rounded-2xl shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-4 gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
@@ -2277,9 +2282,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </div>
           </Card>
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">Cancel</Button>
-            <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[44px] px-6 font-bold text-xs rounded-xl w-full sm:w-auto">Cancel</Button>
+            <Button type="submit" className="h-[44px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md w-full sm:w-auto">
               <Sparkles className="h-4 w-4" /> Create Exam Setup
             </Button>
           </div>
@@ -2369,7 +2374,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
             {/* Passing Criteria & Qualifying Mark (Toggleable ON / OFF) */}
             <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="space-y-0.5">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
                     <Award className="h-4 w-4 text-[#2563EB]" /> Passing Criteria & Qualification Threshold
@@ -2432,7 +2437,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
             {/* MNC Scheduling Engine */}
             <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
                   <CalendarDays className="h-4 w-4 text-[#2563EB]" /> Scheduling Model
                 </label>
@@ -2465,7 +2470,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-xs font-bold flex items-center gap-1">
                       <Zap className="h-3.5 w-3.5 text-[#2563EB]" /> On-Demand
                     </span>
@@ -2482,7 +2487,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-xs font-bold flex items-center gap-1">
                       <CalendarRange className="h-3.5 w-3.5 text-[#2563EB]" /> Window
                     </span>
@@ -2499,7 +2504,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-xs font-bold flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5 text-[#2563EB]" /> Strict Slot
                     </span>
@@ -2514,7 +2519,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 <div className="space-y-3 pt-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <label className="text-[11px] font-bold text-[#4B5563]">Start Date (Optional)</label>
                         <div className="flex items-center gap-1.5">
                           <button type="button" onClick={() => setEditExamForm({ ...editExamForm, startDate: getTodayString() })} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
@@ -2543,7 +2548,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </div>
 
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <label className="text-[11px] font-bold text-[#4B5563]">End Date (Optional)</label>
                         <div className="flex items-center gap-1.5">
                           <button type="button" onClick={() => setEditExamForm({ ...editExamForm, endDate: getNextWeekString() })} className="text-[10px] text-[#2563EB] hover:underline">+7d</button>
@@ -2577,7 +2582,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               {/* Mode Strict Slot Inputs */}
               {currentMode === "scheduled" && (
                 <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Slot Timing Parameters</span>
                     <button
                       type="button"
@@ -2591,7 +2596,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {/* Exam Date */}
                     <div className="space-y-1 p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Date</label>
                         {editExamForm.date ? (
                           <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: "" })} className="text-[10px] font-bold text-[#DC2626] hover:underline flex items-center gap-0.5">
@@ -2630,7 +2635,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                     {/* Start Time */}
                     <div className="space-y-1 p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Start Time</label>
                         {editExamForm.startTime ? (
                           <button
@@ -2696,7 +2701,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                     {/* End Time */}
                     <div className="space-y-1 p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">End Time</label>
                         <div className="flex items-center gap-1">
                           {editExamForm.startTime && (
@@ -2762,7 +2767,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
             {/* Proctoring Toggles */}
             <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
                   <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> AI Proctoring Rules
                 </label>
@@ -4248,11 +4253,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       <PageHeader
         title={role === "admin" ? "Proctored Examination Manager" : "Assessment & Test Creator"}
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
             <Button
               variant="outline"
               onClick={() => setShowBulkUploadAssessments((prev) => !prev)}
-              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm"
+              className="h-9 sm:h-[44px] gap-2 px-3 sm:px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-2xs transition-colors shrink-0"
               title="Bulk create assessments via Excel / CSV"
             >
               <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload Assessments
@@ -4260,11 +4265,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <Button
               onClick={exportAllTestsCsv}
               variant="outline"
-              className="h-[44px] border-[#E5E7EB] dark:border-[#27272A] font-bold text-xs gap-2 px-4 rounded-xl shadow-xs"
+              className="h-9 sm:h-[44px] border-[#E5E7EB] dark:border-[#27272A] font-bold text-xs gap-2 px-3 sm:px-4 rounded-xl shadow-2xs transition-colors shrink-0"
             >
               <Download className="h-4 w-4" /> Export All (CSV)
             </Button>
-            <Button onClick={() => setViewState("wizard")} className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20">
+            <Button onClick={() => setViewState("wizard")} className="h-9 sm:h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-4 sm:px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20 transition-colors">
               <Plus className="h-4 w-4" /> Create New Exam
             </Button>
           </div>
@@ -4286,8 +4291,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       {/* Premium MNC Level Filter Controls */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 mb-2">
         
-        {/* Quick Filter Pills */}
-        <div className="flex items-center gap-1 p-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-x-auto w-full md:w-auto">
+        {/* Quick Filter Pills - Responsive 4-Grid on Mobile, Flex on Desktop */}
+        <div className="grid grid-cols-4 sm:flex items-center gap-1 p-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl w-full md:w-auto">
           {[
             { id: "all", label: "All Exams" },
             { id: "live", label: "Live Now" },
@@ -4297,9 +4302,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <button
               key={filter.id}
               onClick={() => setStatusFilter(filter.id)}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 flex-shrink-0 ${
+              className={`px-1 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all duration-200 text-center truncate ${
                 statusFilter === filter.id
-                  ? 'bg-white dark:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA] shadow-sm'
+                  ? 'bg-white dark:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA] shadow-xs'
                   : 'text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F3F4F6] dark:hover:bg-[#18181B]'
               }`}
             >
@@ -4353,154 +4358,308 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </div>
       )}
 
-      {/* Exams Table */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-xs overflow-hidden">
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
-              <tr>
-                <th className="p-4 pl-5 w-12 text-center">
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && filtered.every((t) => selectedTestIds.includes(t.id))}
-                    onChange={() => toggleSelectAllTests(filtered)}
-                    className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
-                    title={filtered.length > 0 && filtered.every((t) => selectedTestIds.includes(t.id)) ? "Deselect all assessments" : "Select all assessments"}
-                  />
-                </th>
-                <th className="p-4 pl-2">Assessment Title</th>
-                <th className="p-4">Schedule & Timing</th>
-                <th className="p-4">Assigned Batches</th>
-                <th className="p-4">Questions & Marks</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 pr-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-              {filtered.map((t) => {
-                const isSelected = selectedTestIds.includes(t.id);
-                return (
-                <tr
+      {/* Exams Content: Empty State, Mobile Cards (< md), Desktop Table (>= md) */}
+      {filtered.length === 0 ? (
+        <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-2xs rounded-2xl p-8 text-center space-y-3">
+          <ClipboardList className="h-10 w-10 text-slate-300 dark:text-zinc-600 mx-auto" />
+          <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">No assessments found</p>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
+            {search ? `No exams match the search query "${search}".` : "No assessments match the current filter."}
+          </p>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile Card List (< md) - Zero clipping, zero overflow, fully touch-responsive */}
+          <div className="md:hidden space-y-3">
+            {filtered.map((t) => {
+              const isSelected = selectedTestIds.includes(t.id);
+              return (
+                <div
                   key={t.id}
                   className={cn(
-                    "transition-colors group",
+                    "p-4 bg-white dark:bg-[#18181B] border rounded-xl shadow-2xs space-y-3 transition-colors",
                     isSelected
-                      ? "bg-blue-50/70 dark:bg-blue-950/25 border-l-2 border-blue-600"
-                      : "hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60"
+                      ? "border-blue-500 bg-blue-50/30 dark:bg-blue-950/20"
+                      : "border-slate-200/80 dark:border-zinc-800"
                   )}
                 >
-                  <td className="p-4 pl-5 w-12 text-center">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelectTest(t.id)}
-                      className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
-                      title={`Select ${t.title}`}
-                    />
-                  </td>
-                  <td className="p-4 pl-2 space-y-0.5">
-                    <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs">{t.title}</p>
-                    <p className="text-[11px] text-[#6B7280] flex items-center gap-1.5">
-                      <ShieldCheck className="h-3 w-3 text-[#16A34A]" /> {t.proctoringFlags?.length || 0} Security Rules Active
-                    </p>
-                  </td>
-
-                  <td className="p-4 space-y-1">
-                    <div>
-                      {t.scheduleMode === "open" || (!t.date && !t.startDate) ? (
-                        <Badge variant="outline" className="bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30 text-[10px] font-bold">
-                          On-Demand (Anytime)
-                        </Badge>
-                      ) : t.scheduleMode === "window" || (t.startDate || t.endDate) ? (
-                        <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold">
-                          {t.startDate || "Any"} - {t.endDate || "Open"}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-[#7C3AED]/10 text-[#7C3AED] border-[#7C3AED]/30 text-[10px] font-bold">
-                          {t.date} {t.startTime ? `• ${t.startTime}` : ""}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-[#6B7280] flex items-center gap-1">
-                      <Timer className="h-3 w-3 text-[#9CA3AF]" /> {t.duration} Mins Duration
-                    </p>
-                  </td>
-
-                  <td className="p-4">
-                    {t.assignedBatches && t.assignedBatches.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {t.assignedBatches.map(b => (
-                          <Badge key={b} variant="outline" className="text-[10px] font-bold border-[#2563EB]/30 text-[#2563EB]">{b}</Badge>
-                        ))}
+                  {/* Card Top: Checkbox, Title & Status */}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectTest(t.id)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0"
+                        title={`Select ${t.title}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-900 dark:text-zinc-100 text-xs sm:text-sm break-words leading-snug">
+                          {t.title}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                          <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                          <span>{t.proctoringFlags?.length || 0} Security Rules Active</span>
+                        </p>
                       </div>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] font-bold text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/5">
-                        Common (All Students)
-                      </Badge>
-                    )}
-                  </td>
-
-                  <td className="p-4 text-xs font-medium text-[#6B7280]">
-                    <span>{t.totalQuestions || 0} Qs • {t.maxMarks || 0} Marks</span>
-                  </td>
-
-                  <td className="p-4">
-                    <Badge className={`text-[10px] font-bold uppercase ${
-                      t.status === "live" ? "bg-[#16A34A] text-white" : t.status === "scheduled" ? "bg-[#2563EB] text-white" : "bg-[#6B7280] text-white"
-                    }`}>
+                    </div>
+                    <Badge className={cn(
+                      "text-[10px] font-bold uppercase shrink-0 px-2 py-0.5",
+                      t.status === "live"
+                        ? "bg-emerald-600 text-white"
+                        : t.status === "scheduled"
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-600 text-white"
+                    )}>
                       {t.status}
                     </Badge>
-                  </td>
+                  </div>
 
-                  <td className="p-4 pr-6 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditExamModal(t)}
-                        className="h-8 w-8 p-0 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
-                        title="Edit Exam Settings & Schedule"
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadAssessmentReportCsv(t)}
-                        className="h-8 text-[11px] font-bold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 gap-1 rounded-lg"
-                        title="Download Candidate Performance CSV"
-                      >
-                        <Download className="h-3 w-3" /> Report
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openReassignModal(t)}
-                        className="h-8 text-[11px] font-bold rounded-lg border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-zinc-800 gap-1.5 shadow-2xs cursor-pointer transition-all"
-                        title="Assign or reassign batches and manage candidate retakes"
-                      >
-                        <RefreshCw className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                        <span>{t.assignedBatches && t.assignedBatches.length > 0 ? "Reassign" : "Assign"}</span>
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        onClick={() => { setSelectedTest(t); setViewState("exam-dashboard"); }}
-                        className="h-8 text-[11px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-lg shadow-xs"
-                      >
-                        Manage
-                      </Button>
-                      <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors">
-                        Delete
-                      </Button>
+                  {/* Card Details: Timing & Batches */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-zinc-800/80">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Schedule</span>
+                      <div>
+                        {t.scheduleMode === "open" || (!t.date && !t.startDate) ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50 text-[10px] font-bold">
+                            On-Demand
+                          </Badge>
+                        ) : t.scheduleMode === "window" || (t.startDate || t.endDate) ? (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/50 text-[10px] font-bold">
+                            {t.startDate || "Any"} - {t.endDate || "Open"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/50 text-[10px] font-bold">
+                            {t.date} {t.startTime ? `• ${t.startTime}` : ""}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                        <Timer className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span>{t.duration} Mins</span>
+                      </p>
                     </div>
-                  </td>
-                </tr>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Batches & Scope</span>
+                      {t.assignedBatches && t.assignedBatches.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {t.assignedBatches.slice(0, 2).map((b) => (
+                            <Badge key={b} variant="outline" className="text-[10px] font-bold border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300">{b}</Badge>
+                          ))}
+                          {t.assignedBatches.length > 2 && (
+                            <Badge variant="outline" className="text-[9px] text-slate-500">+{t.assignedBatches.length - 2}</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-200 bg-emerald-50/50 dark:text-emerald-400 dark:border-emerald-800">
+                          Common
+                        </Badge>
+                      )}
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                        {t.totalQuestions || 0} Qs • {t.maxMarks || 0} Marks
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Card Actions */}
+                  <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800/80">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openEditExamModal(t)}
+                      className="h-8 px-2 text-xs text-slate-600 hover:text-blue-600 dark:text-zinc-300 rounded-lg"
+                      title="Edit Exam Settings & Schedule"
+                    >
+                      <Settings className="h-3.5 w-3.5 mr-1" /> Settings
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => downloadAssessmentReportCsv(t)}
+                      className="h-8 px-2 text-xs font-bold text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 rounded-lg"
+                    >
+                      <Download className="h-3 w-3 mr-1" /> Report
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openReassignModal(t)}
+                      className="h-8 px-2 text-xs font-bold rounded-lg border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:text-blue-600 hover:bg-blue-50"
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1 text-blue-600" /> Reassign
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => { setSelectedTest(t); setViewState("exam-dashboard"); }}
+                      className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg"
+                    >
+                      Manage
+                    </Button>
+                    <Button
+                      onClick={() => handleDeleteTest(t.id, t.title)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
               );
             })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+          </div>
+
+          {/* Desktop Table View (>= md) */}
+          <Card className="hidden md:block bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-xs overflow-hidden">
+            <CardContent className="p-0 overflow-x-auto no-scrollbar">
+              <table className="w-full text-left text-sm min-w-[760px]">
+                <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
+                  <tr>
+                    <th className="p-4 pl-5 w-12 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && filtered.every((t) => selectedTestIds.includes(t.id))}
+                        onChange={() => toggleSelectAllTests(filtered)}
+                        className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                        title={filtered.length > 0 && filtered.every((t) => selectedTestIds.includes(t.id)) ? "Deselect all assessments" : "Select all assessments"}
+                      />
+                    </th>
+                    <th className="p-4 pl-2">Assessment Title</th>
+                    <th className="p-4">Schedule & Timing</th>
+                    <th className="p-4">Assigned Batches</th>
+                    <th className="p-4">Questions & Marks</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 pr-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                  {filtered.map((t) => {
+                    const isSelected = selectedTestIds.includes(t.id);
+                    return (
+                      <tr
+                        key={t.id}
+                        className={cn(
+                          "transition-colors group",
+                          isSelected
+                            ? "bg-blue-50/70 dark:bg-blue-950/25 border-l-2 border-blue-600"
+                            : "hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60"
+                        )}
+                      >
+                        <td className="p-4 pl-5 w-12 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectTest(t.id)}
+                            className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                            title={`Select ${t.title}`}
+                          />
+                        </td>
+                        <td className="p-4 pl-2 space-y-0.5">
+                          <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs">{t.title}</p>
+                          <p className="text-[11px] text-[#6B7280] flex items-center gap-1.5">
+                            <ShieldCheck className="h-3 w-3 text-[#16A34A]" /> {t.proctoringFlags?.length || 0} Security Rules Active
+                          </p>
+                        </td>
+
+                        <td className="p-4 space-y-1">
+                          <div>
+                            {t.scheduleMode === "open" || (!t.date && !t.startDate) ? (
+                              <Badge variant="outline" className="bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30 text-[10px] font-bold">
+                                On-Demand (Anytime)
+                              </Badge>
+                            ) : t.scheduleMode === "window" || (t.startDate || t.endDate) ? (
+                              <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold">
+                                {t.startDate || "Any"} - {t.endDate || "Open"}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-[#7C3AED]/10 text-[#7C3AED] border-[#7C3AED]/30 text-[10px] font-bold">
+                                {t.date} {t.startTime ? `• ${t.startTime}` : ""}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-[#6B7280] flex items-center gap-1">
+                            <Timer className="h-3 w-3 text-[#9CA3AF]" /> {t.duration} Mins Duration
+                          </p>
+                        </td>
+
+                        <td className="p-4">
+                          {t.assignedBatches && t.assignedBatches.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {t.assignedBatches.map(b => (
+                                <Badge key={b} variant="outline" className="text-[10px] font-bold border-[#2563EB]/30 text-[#2563EB]">{b}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] font-bold text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/5">
+                              Common (All Students)
+                            </Badge>
+                          )}
+                        </td>
+
+                        <td className="p-4 text-xs font-medium text-[#6B7280]">
+                          <span>{t.totalQuestions || 0} Qs • {t.maxMarks || 0} Marks</span>
+                        </td>
+
+                        <td className="p-4">
+                          <Badge className={`text-[10px] font-bold uppercase ${
+                            t.status === "live" ? "bg-[#16A34A] text-white" : t.status === "scheduled" ? "bg-[#2563EB] text-white" : "bg-[#6B7280] text-white"
+                          }`}>
+                            {t.status}
+                          </Badge>
+                        </td>
+
+                        <td className="p-4 pr-6 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openEditExamModal(t)}
+                              className="h-8 w-8 p-0 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
+                              title="Edit Exam Settings & Schedule"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => downloadAssessmentReportCsv(t)}
+                              className="h-8 text-[11px] font-bold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 gap-1 rounded-lg"
+                              title="Download Candidate Performance CSV"
+                            >
+                              <Download className="h-3 w-3" /> Report
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openReassignModal(t)}
+                              className="h-8 text-[11px] font-bold rounded-lg border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-zinc-800 gap-1.5 shadow-2xs cursor-pointer transition-all"
+                              title="Assign or reassign batches and manage candidate retakes"
+                            >
+                              <RefreshCw className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                              <span>{t.assignedBatches && t.assignedBatches.length > 0 ? "Reassign" : "Assign"}</span>
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              onClick={() => { setSelectedTest(t); setViewState("exam-dashboard"); }}
+                              className="h-8 text-[11px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-lg shadow-xs"
+                            >
+                              Manage
+                            </Button>
+                            <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors">
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </>
+      )}
       {renderAssignmentModal()}
       {renderReassignModal()}
       {renderEditExamSettingsModal()}

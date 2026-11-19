@@ -1080,7 +1080,7 @@ export function AssessmentQuestionEditor({
                   <div className="h-[230px] border-t border-slate-200/80 dark:border-zinc-800 flex flex-col bg-slate-50/70 dark:bg-zinc-900/60">
                     {/* Console Tabs */}
                     <div className="flex items-center justify-between px-3 border-b border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] shrink-0">
-                      <div className="flex items-center gap-1 overflow-x-auto">
+                      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                         <button
                           type="button"
                           onClick={() => setActiveConsoleTab("testcases")}

@@ -8,6 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/layouts/page-header";
 import { createPortal } from "react-dom";
@@ -29,6 +35,26 @@ const CodingProblemCreator = dynamic(
 
 const BulkUploadModal = dynamic(
   () => import("@/components/admin/bulk-upload").then((m) => m.BulkUploadModal),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
+
+const SqlProblemCreator = dynamic(
+  () => import("@/components/admin/sql-problem-creator").then((m) => m.SqlProblemCreator),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-8 text-center text-sm font-semibold text-slate-500 animate-pulse">
+        Loading SQL question creator...
+      </div>
+    ),
+  }
+);
+
+const SqlBulkUploadModal = dynamic(
+  () => import("@/components/admin/sql-bulk-upload-modal").then((m) => m.SqlBulkUploadModal),
   {
     ssr: false,
     loading: () => null,
@@ -68,7 +94,8 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  FileText
+  FileText,
+  Database,
 } from "lucide-react";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
@@ -445,6 +472,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState<boolean>(false);
   const [bulkUploadModuleType, setBulkUploadModuleType] = useState<string>("coding_problem");
   const [targetQuestionUploadModule, setTargetQuestionUploadModule] = useState<PracticeModule | null>(null);
+  const [showSqlCreator, setShowSqlCreator] = useState<boolean>(false);
+  const [isSqlBulkUploadOpen, setIsSqlBulkUploadOpen] = useState<boolean>(false);
 
   // ─── MULTI-SELECT CHECKBOX & BULK DELETE STATES ──────────────────
   const [selectedMainModuleIds, setSelectedMainModuleIds] = useState<string[]>([]);
@@ -4019,33 +4048,90 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setBulkUploadModuleType("coding_problem");
-                      setIsBulkUploadOpen(true);
-                    }}
-                    className="h-8.5 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 cursor-pointer"
-                  >
-                    Bulk Upload
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (showCodingCreator && editingCodingIndex === null) {
-                        setShowCodingCreator(false);
-                      } else {
-                        setEditingCodingIndex(null);
-                        setShowCodingCreator(true);
-                      }
-                    }}
-                    className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-                  >
-                    {showCodingCreator && editingCodingIndex === null ? "Close Creator Form" : "+ Create Coding Problem"}
-                  </Button>
+                  {/* Unified Bulk Upload Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="h-8.5 px-3.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 cursor-pointer flex items-center gap-1.5 outline-none"
+                    >
+                      <UploadCloud className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Bulk Upload</span>
+                      <ChevronDown className="h-3 w-3 text-slate-400" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setBulkUploadModuleType("coding_problem");
+                          setIsBulkUploadOpen(true);
+                        }}
+                        className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      >
+                        Programming Questions
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setIsSqlBulkUploadOpen(true)}
+                        className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      >
+                        SQL Questions
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Unified Create Problem Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="h-8.5 px-3.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs flex items-center gap-1.5 outline-none"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Create Problem</span>
+                      <ChevronDown className="h-3 w-3 text-white/80" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditingCodingIndex(null);
+                          setShowSqlCreator(false);
+                          setShowCodingCreator(true);
+                        }}
+                        className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      >
+                        Programming Problem
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditingCodingIndex(null);
+                          setShowCodingCreator(false);
+                          setShowSqlCreator(true);
+                        }}
+                        className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      >
+                        SQL Question
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
+
+              {/* SQL Problem Creator Form (when opened) */}
+              {showSqlCreator && (
+                <div className="pt-1">
+                  <SqlProblemCreator
+                    initialProblem={editingCodingIndex !== null ? codingList[editingCodingIndex] : undefined}
+                    onCancel={() => {
+                      setShowSqlCreator(false);
+                      setEditingCodingIndex(null);
+                    }}
+                    onSave={async (newProb?: any) => {
+                      setShowSqlCreator(false);
+                      setEditingCodingIndex(null);
+                      await fetchData();
+                      toast({
+                        title: "SQL Question Saved",
+                        description: "SQL question and database schema successfully saved.",
+                      });
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Creator Form (when opened) */}
               {showCodingCreator && (
@@ -4223,6 +4309,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               >
                                 {cp.difficulty || "Medium"}
                               </span>
+                              {Boolean(
+                                (cp.type || "").toLowerCase() === "sql" ||
+                                (cp.category || "").toLowerCase() === "databases" ||
+                                Boolean(cp.sql_engine) ||
+                                Boolean(cp.starter_code?.sql_engine)
+                              ) && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                  {cp.sql_engine ? String(cp.sql_engine).toUpperCase() : "SQL"}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-3 flex-wrap">
                               <div className="flex items-center gap-1.5">
@@ -4289,8 +4385,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                             <button
                               type="button"
                               onClick={() => {
+                                const isSql = Boolean(
+                                  (cp.type || "").toLowerCase() === "sql" ||
+                                  (cp.category || "").toLowerCase() === "databases" ||
+                                  (cp.category || "").toLowerCase() === "sql" ||
+                                  cp.sql_engine ||
+                                  cp.starter_code?.sql_engine
+                                );
                                 setEditingCodingIndex(idx);
-                                setShowCodingCreator(true);
+                                if (isSql) {
+                                  setShowCodingCreator(false);
+                                  setShowSqlCreator(true);
+                                } else {
+                                  setShowSqlCreator(false);
+                                  setShowCodingCreator(true);
+                                }
                               }}
                               className="h-7 px-3.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 font-semibold cursor-pointer text-xs transition-colors"
                             >
@@ -6118,24 +6227,24 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           <div className="fixed inset-0 cursor-pointer" onClick={() => setViewingQuestionsModule(null)} />
           <div className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
-              <div>
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <div className="min-w-0 flex-1 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 shrink-0">
                     Level 3 · Questions List
                   </span>
                   <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
                     Total: {(viewingQuestionsModule.mcqQuestions?.length || 0) + (viewingQuestionsModule.codingQuestions?.length || 0)} questions
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-1 truncate">
                   {viewingQuestionsModule.name || viewingQuestionsModule.title}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingQuestionsModule(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
                 title="Close"
               >
                 <X className="w-5 h-5" />
@@ -6143,12 +6252,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             {/* Filter Tabs & Quick Actions */}
-            <div className="px-6 py-3 bg-slate-50/80 dark:bg-zinc-900/70 border-b border-slate-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-50/80 dark:bg-zinc-900/70 border-b border-slate-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar py-0.5 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setViewQuestionsFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     viewQuestionsFilter === "all"
                       ? "bg-blue-600 text-white shadow-xs"
                       : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
@@ -6160,7 +6269,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <button
                     type="button"
                     onClick={() => setViewQuestionsFilter("mcq")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       viewQuestionsFilter === "mcq"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
@@ -6173,7 +6282,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <button
                     type="button"
                     onClick={() => setViewQuestionsFilter("coding")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       viewQuestionsFilter === "coding"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
@@ -6192,10 +6301,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   setViewingQuestionsModule(null);
                   handleOpenModuleEditor(m);
                 }}
-                className="h-8 px-3.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs gap-1.5"
+                className="h-8.5 px-3.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs gap-1.5 w-full sm:w-auto shrink-0 justify-center"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add More Questions</span>
+                <span>Add More Questions</span>
               </Button>
             </div>
 
@@ -6231,7 +6340,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             )}
 
             {/* Questions Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6 pb-12 sm:pb-8 space-y-4">
               {/* If no questions */}
               {((viewingQuestionsModule.mcqQuestions?.length || 0) === 0 && (viewingQuestionsModule.codingQuestions?.length || 0) === 0) ? (
                 <div className="text-center py-12 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-3">
@@ -6287,12 +6396,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         {(viewingQuestionsModule.mcqQuestions || []).map((q, qIdx) => (
                           <div
                             key={q.id || qIdx}
-                            className={`p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors ${
+                            className={`p-3.5 sm:p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors ${
                               selectedViewQuestionKeys.includes(`mcq_${qIdx}`) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center justify-between gap-2.5">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <input
                                   type="checkbox"
                                   checked={selectedViewQuestionKeys.includes(`mcq_${qIdx}`)}
@@ -6306,21 +6415,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0"
                                   title="Select this question"
                                 />
-                                <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300">
+                                <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300 shrink-0">
                                   Q{qIdx + 1}.
                                 </span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
                                   MCQ
                                 </span>
-                                <span className="text-xs text-slate-500 font-semibold">
+                                <span className="text-xs text-slate-500 font-semibold shrink-0">
                                   {q.marks || 10} Marks
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1.5 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "mcq", qIdx)}
-                                  className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
+                                  className="h-7 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                 >
                                   <Edit3 className="w-3 h-3 text-blue-600" />
                                   <span>Edit</span>
@@ -6328,7 +6437,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteQuestionFromView(viewingQuestionsModule, "mcq", qIdx, `MCQ Question #${qIdx + 1}`)}
-                                  className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
+                                  className="h-7 px-2.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                   <span>Delete</span>
@@ -6421,12 +6530,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           return (
                             <div
                               key={cp.id || cIdx}
-                              className={`p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors ${
+                              className={`p-3.5 sm:p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors ${
                                 selectedViewQuestionKeys.includes(`coding_${cIdx}`) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                              {/* Top Row: Checkbox, Number & Problem Title on Left | Difficulty & Points on Right */}
+                              <div className="flex items-start sm:items-center justify-between gap-2.5">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <input
                                     type="checkbox"
                                     checked={selectedViewQuestionKeys.includes(`coding_${cIdx}`)}
@@ -6443,9 +6553,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300 shrink-0">
                                     #{cp.problem_number || cIdx + 1}.
                                   </span>
-                                  <strong className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                                     {cp.title || "Untitled Coding Problem"}
-                                  </strong>
+                                  </h4>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
                                   <span
                                     className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
                                       diff === "easy"
@@ -6458,13 +6570,30 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                     {cp.difficulty || "Medium"}
                                   </span>
                                   <span className="text-xs text-slate-500 font-semibold shrink-0">
-                                    {cp.points || 100} Points
+                                    {cp.points || 100} Pts
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
+                              </div>
+
+                              {/* Problem Statement Preview */}
+                              <p className="text-xs text-slate-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                                {cp.description || "Interactive algorithm challenge with automated test cases."}
+                              </p>
+
+                              {/* Bottom Specifications Bar & Action Controls */}
+                              <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                                <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-slate-500 dark:text-zinc-400 flex-wrap">
+                                  <span>Time: <strong>{cp.time_limit_ms || 2000}ms</strong></span>
+                                  <span>•</span>
+                                  <span>Memory: <strong>{cp.memory_limit_mb || 256}MB</strong></span>
+                                  <span>•</span>
+                                  <span>Test Cases: <strong>{tcCount}</strong></span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                                   {/* Code Lab Scope Toggle */}
-                                  <div className="h-7 flex items-center gap-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 shadow-2xs">
-                                    <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 select-none">
+                                  <div className="h-7 flex items-center gap-1.5 px-2 rounded-lg border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 shadow-2xs">
+                                    <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-zinc-300 select-none">
                                       Challenges
                                     </span>
                                     <button
@@ -6473,19 +6602,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                       aria-checked={isCodeLabActive}
                                       disabled={isToggling}
                                       onClick={() => handleToggleCodeLabScope(viewingQuestionsModule, cp, cIdx)}
-                                      className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                                      className={`relative inline-flex h-4 w-7 sm:h-4.5 sm:w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
                                         isCodeLabActive ? "bg-emerald-600" : "bg-slate-300 dark:bg-zinc-700"
                                       }`}
                                       title={isCodeLabActive ? "Published to Challenges (Click to disable)" : "Practice only (Click to publish to Challenges)"}
                                     >
                                       <span
                                         aria-hidden="true"
-                                        className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                                          isCodeLabActive ? "translate-x-3.5" : "translate-x-0"
+                                        className={`pointer-events-none inline-block h-3 w-3 sm:h-3.5 sm:w-3.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                          isCodeLabActive ? "translate-x-3 sm:translate-x-3.5" : "translate-x-0"
                                         }`}
                                       />
                                     </button>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                    <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${
                                       isCodeLabActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-zinc-500"
                                     }`}>
                                       {isToggling ? "..." : isCodeLabActive ? "Active" : "Off"}
@@ -6495,7 +6624,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   <button
                                     type="button"
                                     onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "coding", cIdx)}
-                                    className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
+                                    className="h-7 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                   >
                                     <Edit3 className="w-3 h-3 text-blue-600" />
                                     <span>Edit</span>
@@ -6503,22 +6632,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteQuestionFromView(viewingQuestionsModule, "coding", cIdx, cp.title || `Coding Problem #${cIdx + 1}`)}
-                                    className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
+                                    className="h-7 px-2.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                   >
                                     <Trash2 className="w-3 h-3" />
                                     <span>Delete</span>
                                   </button>
                                 </div>
-                              </div>
-
-                              <p className="text-xs text-slate-600 dark:text-zinc-400 line-clamp-2">
-                                {cp.description || "Interactive algorithm challenge with automated test cases."}
-                              </p>
-
-                              <div className="flex items-center gap-4 text-[11px] text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-200/50 dark:border-zinc-800/50">
-                                <span>Time Limit: <strong>{cp.time_limit_ms || 2000}ms</strong></span>
-                                <span>Memory Limit: <strong>{cp.memory_limit_mb || 256}MB</strong></span>
-                                <span>Total Test Cases: <strong>{tcCount}</strong></span>
                               </div>
                             </div>
                           );
@@ -6531,7 +6650,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 shrink-0">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 shrink-0">
               <Button
                 type="button"
                 onClick={() => {
@@ -6542,7 +6661,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 className="h-9 px-4 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs gap-1.5"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Add / Manage Questions</span>
+                <span>Add / Manage Questions</span>
               </Button>
               <Button
                 type="button"
@@ -6718,6 +6837,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             : "Practice Module Questions"
         }
         onImport={handleBulkImport}
+      />
+
+      {/* ─── SQL UNIVERSAL BULK UPLOAD MODAL ───────────────────────────────── */}
+      <SqlBulkUploadModal
+        isOpen={isSqlBulkUploadOpen}
+        onClose={() => setIsSqlBulkUploadOpen(false)}
+        onSuccess={async () => {
+          setIsSqlBulkUploadOpen(false);
+          await fetchData();
+        }}
+        targetModuleId={currentModule?.id || selectedModuleId || undefined}
+        targetTrackId={currentMainModule?.id || selectedMainModuleId || undefined}
+        targetSubmoduleId={currentSubmodule?.id || selectedSubmoduleId || undefined}
       />
     </div>
   );

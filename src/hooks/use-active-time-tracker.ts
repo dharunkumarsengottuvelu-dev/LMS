@@ -288,8 +288,8 @@ export function useActiveTimeTracker() {
       localTickTimerRef.current = setInterval(() => {
         pendingIncrementRef.current += 1;
         bufferedSeconds += 1;
-        // Batch React state updates every 5 seconds to prevent continuous root re-render churn
-        if (bufferedSeconds >= 5) {
+        // Batch React state updates every 30 seconds to prevent continuous root re-render churn
+        if (bufferedSeconds >= 30) {
           const delta = bufferedSeconds;
           setTotalActiveSeconds((prev) => prev + delta);
           setTodayActiveSeconds((prev) => prev + delta);

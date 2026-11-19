@@ -74,7 +74,7 @@ export function SensilearnLoader({
   }, []);
 
   useEffect(() => {
-    if (!isLoading && phase !== "unmounted") {
+    if (!isLoading && phase !== "unmounted" && phase !== "exiting") {
       // Phase 3: Loading Completion (250ms fade-out)
       setPhase("exiting");
       exitTimerRef.current = setTimeout(() => {
@@ -87,6 +87,16 @@ export function SensilearnLoader({
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
     };
   }, [isLoading, onFinish, phase]);
+
+  // Hard maximum safety watchdog: Fullscreen loaders must NEVER freeze or trap the page
+  useEffect(() => {
+    if (variant !== "fullscreen") return;
+    const watchdog = setTimeout(() => {
+      setPhase("unmounted");
+      onFinish?.();
+    }, 1500);
+    return () => clearTimeout(watchdog);
+  }, [variant, onFinish]);
 
   if (phase === "unmounted") {
     return null;

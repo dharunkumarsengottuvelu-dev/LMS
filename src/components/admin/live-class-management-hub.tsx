@@ -502,12 +502,12 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
       <PageHeader
         title={role === "admin" ? "Live Classes Management" : "Assigned Live Classes"}
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
             <Button
               variant="outline"
               onClick={() => fetchClasses(true)}
               disabled={isRefreshing || isLoading}
-              className="h-[44px] text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-xl shrink-0 shadow-xs cursor-pointer"
+              className="h-9 sm:h-[44px] text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 px-3 sm:px-4 rounded-xl flex-1 sm:flex-initial shadow-xs cursor-pointer transition-colors shrink-0"
               title="Refresh live classes list"
             >
               <RefreshCw className={cn("h-4 w-4", (isRefreshing || isLoading) && "animate-spin")} />
@@ -516,7 +516,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
 
             <Button
               onClick={() => router.push(`/${role}/live-classes/new`)}
-              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs cursor-pointer"
+              className="h-9 sm:h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-4 sm:px-5 rounded-xl flex-1 sm:flex-initial shadow-sm text-xs cursor-pointer transition-colors shrink-0"
             >
               <Plus className="h-4 w-4" /> Schedule Live Class
             </Button>
@@ -546,7 +546,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
         </div>
 
         {/* Real-time Filter Tabs on Right */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar w-full md:w-auto py-1 px-1 pr-6 touch-pan-x scroll-smooth">
           {[
             { id: "all", label: "All", count: dynamicStats.total },
             { id: "live", label: "Live Now", count: dynamicStats.live, isLive: true },
@@ -558,7 +558,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
               key={tab.id}
               onClick={() => setFilterStatus(tab.id)}
               className={cn(
-                "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                "px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap",
                 filterStatus === tab.id
                   ? "bg-[#2563EB] text-white shadow-xs font-bold"
                   : "text-[#6B7280] hover:text-[#111827] dark:hover:text-white hover:bg-[#F3F4F6] dark:hover:bg-zinc-800"
@@ -588,7 +588,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
 
       {/* 3. Live Classes Cards Grid (Exact matching card design from Practice Track Management screenshot) */}
       {filteredClasses.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl bg-white dark:bg-[#18181B] shadow-sm">
+        <div className="flex flex-col items-center justify-center py-12 sm:py-16 px-4 text-center border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl bg-white dark:bg-[#18181B] shadow-sm">
           <h3 className="font-semibold text-lg text-[#111827] dark:text-[#FAFAFA]">No live classes found</h3>
           <p className="text-sm text-[#6B7280] mt-1 max-w-sm font-normal">
             {searchQuery

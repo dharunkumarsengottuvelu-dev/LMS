@@ -280,12 +280,16 @@ export default function StudentTrackDetailPage() {
   }
 
   const submodules = track.submodules || [];
+  const allFlatModules = submodules.flatMap((sm) => sm.modules || []);
+  const inProgressCount = allFlatModules.filter(
+    (m) => !m.isCompleted && (m.status === "in_progress" || m.isInProgress || Boolean(m.activeAttempt) || (m.completedQuestions && m.completedQuestions > 0))
+  ).length;
   const progressPercent = track.progressPercentage || 0;
 
   return (
     <div className="w-full space-y-6 pb-16 font-sans">
       {/* ─── TOP TRACK HEADER ───────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/90 dark:border-zinc-800 p-5 sm:p-6 shadow-2xs">
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/90 dark:border-zinc-800 p-4 sm:p-6 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div className="space-y-2 flex-1 min-w-0">
             <div>
@@ -309,12 +313,13 @@ export default function StudentTrackDetailPage() {
             <div className="text-[11px] text-slate-500 dark:text-zinc-400 pt-0.5">
               <span>
                 {track.completedModules || 0} of {track.totalModules || 0} Modules Completed
+                {inProgressCount > 0 && ` • ${inProgressCount} ${inProgressCount === 1 ? "Module" : "Modules"} In Progress`}
               </span>
             </div>
           </div>
 
           {/* Right: Progress Summary Box */}
-          <div className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-2xs min-w-[220px] space-y-2.5 shrink-0">
+          <div className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-2xs w-full lg:w-auto lg:min-w-[220px] space-y-2.5 shrink-0">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="uppercase text-slate-500 dark:text-zinc-400">Track Progress</span>
               <span className={progressPercent === 100 ? "text-emerald-600" : "text-blue-600"}>
@@ -390,12 +395,12 @@ export default function StudentTrackDetailPage() {
                         <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-[11px] flex items-center justify-center shrink-0">
                           {smIdx + 1}
                         </span>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white break-words leading-snug">
                           {sm.name || sm.title}
                         </h3>
                       </div>
                       {sm.description && (
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 pl-7 line-clamp-1 sm:line-clamp-2">
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 pl-7 break-words leading-relaxed">
                           {sm.description}
                         </p>
                       )}
@@ -449,7 +454,7 @@ export default function StudentTrackDetailPage() {
 
                                     <div className="space-y-0.5 flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug truncate">
+                                        <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug break-words">
                                           {m.name || m.title}
                                         </h4>
                                         <span
@@ -466,7 +471,7 @@ export default function StudentTrackDetailPage() {
                                       </div>
 
                                       {m.description && (
-                                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">
+                                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 break-words leading-relaxed">
                                           {m.description}
                                         </p>
                                       )}

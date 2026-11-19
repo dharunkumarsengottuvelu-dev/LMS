@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu, User } from "lucide-react";
@@ -24,6 +24,11 @@ import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 export function StudentTopNav() {
   const pathname = usePathname();
   const { profile, user, signOut } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   const emailStr = user?.email || "";
   const emailParts = (emailStr.split("@")[0] || "").split(/[\.\-_]/);
@@ -100,18 +105,20 @@ export function StudentTopNav() {
           <NotificationBellDropdown />
 
           {/* Mobile Hamburger Menu Drawer */}
-          <Sheet>
-            <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200 cursor-pointer">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
             </SheetTrigger>
             <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
               <SheetHeader className="text-left pb-4 border-b border-border">
-                <SensilearnLogo
-                  size="sm"
-                  theme="auto"
-                  href="/student/dashboard"
-                />
+                <div onClick={() => setMobileOpen(false)}>
+                  <SensilearnLogo
+                    size="sm"
+                    theme="auto"
+                    href="/student/dashboard"
+                  />
+                </div>
               </SheetHeader>
 
               <nav className="flex flex-col gap-1.5 pt-6">
@@ -125,6 +132,7 @@ export function StudentTopNav() {
                       key={item.href}
                       href={item.href}
                       prefetch={true}
+                      onClick={() => setMobileOpen(false)}
                       className={cn(
                         "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                         isActive

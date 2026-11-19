@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Database, Plus, Trash2, CheckCircle2, Clock, Play,
   Sparkles, Save, ShieldCheck, Layers, FileText,
-  AlertCircle, Check, Eye, ChevronRight, Terminal,
+  AlertCircle, Check, ChevronRight, Terminal,
   Cpu, HardDrive, HelpCircle, ArrowLeft,
   Maximize2, Minimize2, ShieldAlert, Lock, RefreshCw,
   Upload, FileSpreadsheet, Code2, CheckCheck
@@ -54,6 +54,19 @@ export function SqlProblemCreator({
 }: SqlProblemCreatorProps) {
   const { toast } = useToast();
 
+  // 0. Practice Module Hierarchy State
+  const [tracks, setTracks] = useState<any[]>([]);
+  const [isLoadingTracks, setIsLoadingTracks] = useState(false);
+  const [selectedTrackId, setSelectedTrackId] = useState<string>(
+    initialProblem?.starter_code?.track_id || (initialProblem as any)?.track_id || ""
+  );
+  const [selectedSubmoduleId, setSelectedSubmoduleId] = useState<string>(
+    initialProblem?.starter_code?.submodule_id || (initialProblem as any)?.submodule_id || ""
+  );
+  const [selectedModuleId, setSelectedModuleId] = useState<string>(
+    initialProblem?.starter_code?.module_id || (initialProblem as any)?.module_id || ""
+  );
+
   // 1. Basic Details State
   const [title, setTitle] = useState(initialProblem?.title || "");
   const [difficulty, setDifficulty] = useState<Difficulty>(initialProblem?.difficulty || "easy");
@@ -72,6 +85,61 @@ export function SqlProblemCreator({
       : true
   );
   const [points, setPoints] = useState(initialProblem?.points || 20);
+  const [timeLimitMs, setTimeLimitMs] = useState<number>(initialProblem?.time_limit_ms || 3000);
+  const [memoryLimitMb, setMemoryLimitMb] = useState<number>(initialProblem?.memory_limit_mb || 256);
+  const [questionStatus, setQuestionStatus] = useState<"draft" | "published">(
+    initialProblem?.status === "draft" ? "draft" : "published"
+  );
+
+  // Reference Solution & Learning Objectives State
+  const [referenceSolution, setReferenceSolution] = useState<string>(
+    (initialProblem as any)?.reference_solution ||
+      (initialProblem as any)?.solution_code?.sql ||
+      initialProblem?.solution_editorial?.approaches?.[0]?.code?.sql ||
+      ""
+  );
+  const [solutionExplanation, setSolutionExplanation] = useState<string>(
+    initialProblem?.explanation || initialProblem?.solution_editorial?.overview || ""
+  );
+  const [learningObjectives, setLearningObjectives] = useState<string>(
+    (initialProblem as any)?.learning_objectives || ""
+  );
+
+  // Fetch Practice Tracks for hierarchy selection
+  useEffect(() => {
+    let active = true;
+    setIsLoadingTracks(true);
+    fetch("/api/admin/practices")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data?.tracks) ? data.tracks : Array.isArray(data) ? data : [];
+        setTracks(list);
+      })
+      .catch((err) => console.warn("Failed to load tracks in SqlProblemCreator:", err))
+      .finally(() => {
+        if (active) setIsLoadingTracks(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
+  const submodules = useMemo(() => {
+    if (!selectedTrack) return [];
+    let sms = selectedTrack.sub_modules || selectedTrack.submodules || [];
+    if (!Array.isArray(sms) && selectedTrack.tags && selectedTrack.tags[0]) {
+      try { sms = JSON.parse(selectedTrack.tags[0]).subModules || []; } catch {}
+    }
+    return Array.isArray(sms) ? sms : [];
+  }, [selectedTrack]);
+
+  const selectedSubmodule = submodules.find((sm: any) => sm.id === selectedSubmoduleId);
+  const practiceModules = useMemo(() => {
+    if (!selectedSubmodule) return [];
+    return selectedSubmodule.modules || [];
+  }, [selectedSubmodule]);
 
   // 2. Problem Statement State
   const [description, setDescription] = useState(initialProblem?.description || "");
@@ -133,10 +201,6 @@ export function SqlProblemCreator({
   });
 
   // UI States
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewQuery, setPreviewQuery] = useState(
-    (initialProblem?.templates as any)?.sql || "-- Write your SQL query here\n"
-  );
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
@@ -397,15 +461,17 @@ export function SqlProblemCreator({
     setIsSaving(true);
     try {
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const problemId = `sql_${slug || Date.now()}`;
+      const problemId = initialProblem?.id || `sql_${slug || Date.now()}`;
 
       const problemData: CodingProblem = {
         id: problemId,
         title: title.trim(),
-        slug,
+        slug: initialProblem?.slug || slug,
         description: description.trim(),
         difficulty,
         category: "Databases",
+        type: "sql",
+        topic_tags: tags,
         constraints: [
           constraints ? `Constraints:\n${constraints}` : "",
           requirements ? `Requirements:\n${requirements}` : "",
@@ -417,15 +483,25 @@ export function SqlProblemCreator({
         sample_input: "",
         sample_output: testCases[0]?.expected_output || "",
         templates: {
-          sql: `-- Dialect: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect}\n-- Engine: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name}\nSELECT * FROM ${tables[0]?.name || "table_name"};\n`,
+          sql: referenceSolution
+            ? `-- Dialect: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect}\n-- Engine: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name}\nSELECT * FROM ${tables[0]?.name || "table_name"};\n`
+            : `-- Dialect: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect}\nSELECT * FROM ${tables[0]?.name || "table_name"};\n`,
         },
+        allowed_languages: ["sql"],
+        allowedLanguages: ["sql"],
+        default_language: "sql",
+        defaultLanguage: "sql",
         test_cases: testCases.map((tc) => ({
           id: tc.id,
+          name: tc.name,
           input: "",
           expected_output: tc.expected_output,
           is_hidden: tc.is_hidden,
+          weight: tc.weight,
           explanation: tc.explanation,
         })),
+        sample_test_cases: testCases.filter((tc) => !tc.is_hidden),
+        hidden_test_cases: testCases.filter((tc) => tc.is_hidden),
         sql_engine: (sqlEngine === "sqlserver" || sqlEngine === "oracle" ? "sqlite" : sqlEngine) as SQLEngine,
         sql_question_mode: sqlMode,
         provide_tables: sqlMode === "QUERY_ONLY",
@@ -433,7 +509,34 @@ export function SqlProblemCreator({
         seed_sql: sqlMode === "QUERY_ONLY" ? seedSql : undefined,
         comparison_mode: comparisonMode,
         duration_minutes: isDurationEnabled ? durationMinutes : 0,
-        created_at: new Date().toISOString(),
+        time_limit_ms: timeLimitMs || 3000,
+        memory_limit_mb: memoryLimitMb || 256,
+        status: isDraft ? "draft" : questionStatus,
+        explanation: solutionExplanation.trim(),
+        solution_editorial: referenceSolution.trim()
+          ? {
+              overview: solutionExplanation || "Reference solution for this SQL database problem.",
+              approaches: [
+                {
+                  name: `${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name} Solution`,
+                  timeComplexity: "O(N)",
+                  spaceComplexity: "O(N)",
+                  explanation: solutionExplanation || "Relational query solution.",
+                  code: { sql: referenceSolution.trim() },
+                },
+              ],
+            }
+          : undefined,
+        starter_code: {
+          track_id: selectedTrackId || undefined,
+          submodule_id: selectedSubmoduleId || undefined,
+          module_id: selectedModuleId || undefined,
+          learning_objectives: learningObjectives || undefined,
+          sql_engine: sqlEngine,
+          tables,
+          reference_query: referenceSolution,
+        },
+        created_at: initialProblem?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
@@ -459,44 +562,57 @@ export function SqlProblemCreator({
       {/* Top Header */}
       {!hideHeader && (
         <PageHeader
-          title="SQL Question Builder"
-          breadcrumbs={[
-            { label: "Admin", href: "/admin/dashboard" },
-            { label: "Question Bank", href: "/admin/coding" },
-            { label: "Create SQL Question" },
-          ]}
+          title={initialProblem?.id ? `Edit SQL Question: ${title || initialProblem.title}` : "SQL Question Builder"}
+          badge={
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                questionStatus === "published"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                  : "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
+              }`}
+            >
+              {initialProblem?.id ? questionStatus : `New ${questionStatus}`}
+            </span>
+          }
+          backAction={
+            onCancel
+              ? {
+                  label: "Back to Question Bank",
+                  onClick: onCancel,
+                }
+              : undefined
+          }
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {onChangeQuestionType && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => onChangeQuestionType("programming")}
-                  className="h-9 text-xs border-[#2563EB]/40 text-[#2563EB] font-bold"
+                  className="h-9 px-3 sm:px-3.5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs cursor-pointer gap-1.5"
                 >
-                  <Code2 className="h-4 w-4 mr-1.5" /> Switch to Programming Question
+                  <Code2 className="h-4 w-4 text-blue-600 shrink-0" />
+                  <span className="hidden sm:inline">Switch to Programming Question</span>
+                  <span className="sm:hidden">Switch to Code</span>
                 </Button>
               )}
               {onCancel && (
-                <Button type="button" variant="outline" size="sm" onClick={onCancel} className="h-9 text-xs">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onCancel}
+                  className="h-9 px-3.5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
+                >
                   Cancel
                 </Button>
               )}
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPreviewOpen(true)}
-                className="h-9 text-xs border-emerald-600 text-emerald-600 font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-              >
-                <Eye className="h-4 w-4 mr-1.5" /> Preview Student View
-              </Button>
-              <Button
-                type="button"
                 onClick={() => handlePublish(false)}
                 disabled={isSaving}
-                className="h-9 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-4"
+                className="h-9 px-4 text-xs font-semibold rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs cursor-pointer"
               >
                 {isSaving ? "Publishing..." : "Publish SQL Question"}
               </Button>
@@ -504,6 +620,100 @@ export function SqlProblemCreator({
           }
         />
       )}
+
+      {/* SECTION 0: PRACTICE HIERARCHY SELECTOR */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
+              <Layers className="h-4 w-4" /> 0. Curriculum Hierarchy Association
+            </h2>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Link question to Main Module → Submodule → Practice Module hierarchy
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 font-mono">
+            3-Level Hierarchy
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Main Module */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+              Main Module (Track)
+            </label>
+            <Select
+              value={selectedTrackId}
+              onValueChange={(val) => {
+                setSelectedTrackId(val || "");
+                setSelectedSubmoduleId("");
+                setSelectedModuleId("");
+              }}
+            >
+              <SelectTrigger className="h-10 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder={isLoadingTracks ? "Loading tracks..." : "Select Main Module"} />
+              </SelectTrigger>
+              <SelectContent>
+                {tracks.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.title || t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Submodule */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+              Submodule (Section)
+            </label>
+            <Select
+              value={selectedSubmoduleId}
+              onValueChange={(val) => {
+                setSelectedSubmoduleId(val || "");
+                setSelectedModuleId("");
+              }}
+              disabled={!selectedTrackId || submodules.length === 0}
+            >
+              <SelectTrigger className="h-10 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder={selectedTrackId ? (submodules.length === 0 ? "No Submodules" : "Select Submodule") : "Select Main Module First"} />
+              </SelectTrigger>
+              <SelectContent>
+                {submodules.map((sm: any) => (
+                  <SelectItem key={sm.id} value={sm.id}>
+                    {sm.name || sm.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Practice Module */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+              Practice Module
+            </label>
+            <Select
+              value={selectedModuleId}
+              onValueChange={(val) => setSelectedModuleId(val || "")}
+              disabled={!selectedSubmoduleId || practiceModules.length === 0}
+            >
+              <SelectTrigger className="h-10 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder={selectedSubmoduleId ? (practiceModules.length === 0 ? "No Practice Modules" : "Select Module") : "Select Submodule First"} />
+              </SelectTrigger>
+              <SelectContent>
+                {practiceModules.map((m: any) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name || m.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Card>
 
       {/* SECTION 1: SQL QUESTION DETAILS */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
@@ -578,6 +788,47 @@ export function SqlProblemCreator({
               type="number"
               value={points}
               onChange={(e) => setPoints(parseInt(e.target.value, 10) || 0)}
+              className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 border-t border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question Status</label>
+            <Select value={questionStatus} onValueChange={(v) => setQuestionStatus(v as any)}>
+              <SelectTrigger className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="published">Published (Available immediately)</SelectItem>
+                <SelectItem value="draft">Draft (Saved for review)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Execution Time Limit (ms)</label>
+            <Input
+              type="number"
+              step={500}
+              min={1000}
+              max={15000}
+              value={timeLimitMs}
+              onChange={(e) => setTimeLimitMs(parseInt(e.target.value, 10) || 3000)}
+              className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Memory Limit (MB)</label>
+            <Input
+              type="number"
+              step={64}
+              min={64}
+              max={1024}
+              value={memoryLimitMb}
+              onChange={(e) => setMemoryLimitMb(parseInt(e.target.value, 10) || 256)}
               className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
             />
           </div>
@@ -1108,11 +1359,11 @@ export function SqlProblemCreator({
       )}
 
       {/* SECTION 5: DEDICATED SQL TEST CASES */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
-          <div>
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 sm:p-6 rounded-2xl shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+          <div className="min-w-0">
             <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" /> 5. SQL Test Cases & Semantic Evaluation ({testCases.length})
+              <CheckCircle2 className="h-4 w-4 shrink-0" /> 5. SQL Test Cases & Semantic Evaluation ({testCases.length})
             </h2>
             <p className="text-xs text-[#6B7280] mt-0.5">Configure public datasets and hidden evaluation testcases with expected outputs</p>
           </div>
@@ -1135,21 +1386,21 @@ export function SqlProblemCreator({
                 },
               ]);
             }}
-            className="h-8 text-xs bg-[#2563EB] text-white font-bold gap-1"
+            className="h-8 text-xs bg-[#2563EB] text-white font-bold gap-1 w-full sm:w-auto shrink-0 cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" /> Add SQL Test Case
           </Button>
         </div>
 
         {/* Global Result Comparison Mode */}
-        <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl flex items-center justify-between">
-          <div>
+        <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
             <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] block">Default Result Comparison Mode</span>
-            <span className="text-[11px] text-[#6B7280]">How the evaluator checks student SQL output against the expected dataset</span>
+            <span className="text-[11px] text-[#6B7280] mt-0.5 block">How the evaluator checks student SQL output against the expected dataset</span>
           </div>
 
           <Select value={comparisonMode} onValueChange={(v) => setComparisonMode(v as SQLComparisonMode)}>
-            <SelectTrigger className="h-9 text-xs rounded-lg w-56 bg-white dark:bg-[#18181B]">
+            <SelectTrigger className="h-9 text-xs rounded-lg w-full sm:w-60 bg-white dark:bg-[#18181B] shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1162,9 +1413,11 @@ export function SqlProblemCreator({
         {/* Test Cases List */}
         <div className="space-y-4">
           {testCases.map((tc, idx) => (
-            <div key={tc.id} className="p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
+            <div key={tc.id} className="p-3.5 sm:p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] space-y-3">
+              {/* Header: Test Case Name, Status Toggle, Weight, and Delete */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                {/* Left: Test Case Name & Interactive Visibility Toggle */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Input
                     value={tc.name}
                     onChange={(e) => {
@@ -1172,16 +1425,31 @@ export function SqlProblemCreator({
                       next[idx]!.name = e.target.value;
                       setTestCases(next);
                     }}
-                    className="h-8 text-xs font-bold w-64 bg-white dark:bg-[#18181B]"
+                    placeholder={`Test Case ${idx + 1}`}
+                    className="h-8 text-xs font-bold w-full sm:w-56 min-w-0 bg-white dark:bg-[#18181B] rounded-lg shrink-1"
                   />
-                  <Badge variant={tc.is_hidden ? "secondary" : "outline"} className="text-[10px] font-bold">
-                    {tc.is_hidden ? "Hidden Test" : "Public Sample Case"}
-                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = [...testCases];
+                      next[idx]!.is_hidden = !next[idx]!.is_hidden;
+                      setTestCases(next);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                      tc.is_hidden
+                        ? "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300"
+                        : "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800"
+                    }`}
+                    title={tc.is_hidden ? "Click to switch to Public Sample" : "Click to switch to Hidden Test"}
+                  >
+                    {tc.is_hidden ? "Hidden Test" : "Public Sample"}
+                  </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* Right: Weight and Delete Action */}
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                   <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
-                    <span>Weight:</span>
+                    <span className="font-medium">Weight:</span>
                     <Input
                       type="number"
                       min={0}
@@ -1199,33 +1467,19 @@ export function SqlProblemCreator({
                           setTestCases(next);
                         }
                       }}
-                      className="h-7 w-16 text-xs text-center bg-white dark:bg-[#18181B]"
+                      className="h-8 w-16 text-xs text-center font-bold bg-white dark:bg-[#18181B] rounded-lg"
                     />
-                    <span>%</span>
+                    <span className="font-medium">%</span>
                   </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const next = [...testCases];
-                      next[idx]!.is_hidden = !next[idx]!.is_hidden;
-                      setTestCases(next);
-                    }}
-                    className="h-7 text-[11px]"
-                  >
-                    {tc.is_hidden ? "Make Public" : "Make Hidden"}
-                  </Button>
 
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     onClick={() => setTestCases((prev) => prev.filter((_, i) => i !== idx))}
-                    className="h-7 px-2 text-xs font-semibold text-red-500 hover:bg-red-50"
+                    className="h-8 px-2.5 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg cursor-pointer"
                   >
-                    Delete
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
                   </Button>
                 </div>
               </div>
@@ -1249,95 +1503,65 @@ export function SqlProblemCreator({
         </div>
       </Card>
 
-      {/* STUDENT PREVIEW MODAL */}
-      {isPreviewOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="h-14 border-b border-[#E5E7EB] dark:border-[#27272A] px-5 flex items-center justify-between shrink-0 bg-muted/20">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold">Candidate Live Preview</Badge>
-                <span className="text-sm font-bold truncate max-w-md">{title || "Untitled SQL Problem"}</span>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => setIsPreviewOpen(false)} className="h-8 text-xs">
-                Close Preview
-              </Button>
+      {/* SECTION 6: REFERENCE SOLUTION & LEARNING OBJECTIVES */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
+        <div className="border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
+            <FileText className="h-4 w-4" /> 6. Reference Solution & Learning Objectives
+          </h2>
+          <p className="text-xs text-[#6B7280] mt-0.5">
+            Configure trainer reference SQL query, editorial explanation, and competencies
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Reference SQL Solution Query ({SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name})
+              </label>
+              <span className="text-[10px] text-muted-foreground font-mono">
+                Used for automated correctness benchmarking
+              </span>
+            </div>
+            <Textarea
+              rows={6}
+              value={referenceSolution}
+              onChange={(e) => setReferenceSolution(e.target.value)}
+              placeholder={`SELECT e.name, d.department_name, e.salary\nFROM employees e\nJOIN departments d ON e.department_id = d.department_id\nWHERE e.salary > 70000\nORDER BY e.salary DESC;`}
+              className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Solution Explanation
+              </label>
+              <Textarea
+                rows={4}
+                value={solutionExplanation}
+                onChange={(e) => setSolutionExplanation(e.target.value)}
+                placeholder="Explain the optimal join strategy, index utilization, and filtering logic..."
+                className="text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+              />
             </div>
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-hidden">
-              {/* Left: Problem Specs & Schema */}
-              <div className="p-5 border-r border-[#E5E7EB] dark:border-[#27272A] overflow-y-auto space-y-5 bg-white dark:bg-[#18181B]">
-                <div>
-                  <h3 className="text-base font-bold mb-1">{title || "SQL Query Problem"}</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] uppercase font-bold text-[#2563EB] border-[#2563EB]/40">
-                      {SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name} ({SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect})
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] font-bold">
-                      {difficulty}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase">Problem Statement</h4>
-                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">
-                    {description || "Solve the database problem using SQL."}
-                  </p>
-                </div>
-
-                {sqlMode === "QUERY_ONLY" ? (
-                  <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-3">
-                    <span className="text-xs font-bold text-[#2563EB] flex items-center gap-1.5">
-                      <Database className="h-4 w-4" /> Provided Database Schema (DDL)
-                    </span>
-                    <pre className="text-[10.5px] font-mono bg-background p-2.5 rounded-lg border border-border overflow-x-auto whitespace-pre-wrap leading-relaxed">
-                      {schemaSql}
-                    </pre>
-
-                    {seedSql && (
-                      <div className="space-y-1">
-                        <span className="text-[11px] font-bold text-muted-foreground">Sample Data Records (DML):</span>
-                        <pre className="text-[10px] font-mono bg-background p-2 rounded-lg border border-border overflow-x-auto whitespace-pre-wrap max-h-32 overflow-y-auto">
-                          {seedSql}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900/40 space-y-2">
-                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Database Requirements:</span>
-                    <p className="text-xs text-amber-900 dark:text-amber-300 leading-relaxed whitespace-pre-wrap">
-                      {dbRequirementsText}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Right: Candidate SQL Editor */}
-              <div className="p-5 flex flex-col justify-between bg-[#09090B] text-white">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#27272A]">
-                    <span className="text-xs font-bold text-white/70 font-mono">SQL Editor ({SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect})</span>
-                    <Button size="sm" className="h-7 text-xs bg-[#16A34A] text-white font-bold gap-1">
-                      <Play className="h-3 w-3" /> Run SQL Query
-                    </Button>
-                  </div>
-                  <Textarea
-                    rows={12}
-                    value={previewQuery}
-                    onChange={(e) => setPreviewQuery(e.target.value)}
-                    className="font-mono text-xs leading-relaxed bg-[#18181B] text-emerald-400 border-[#27272A] rounded-xl p-3"
-                  />
-                </div>
-
-                <div className="p-3 bg-[#18181B] border border-[#27272A] rounded-xl text-center text-xs text-white/40 font-mono">
-                  Sample Public Test Cases & Query Results will be evaluated live against isolated sandbox.
-                </div>
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Learning Objectives & Competencies
+              </label>
+              <Textarea
+                rows={4}
+                value={learningObjectives}
+                onChange={(e) => setLearningObjectives(e.target.value)}
+                placeholder="e.g. INNER JOIN, WHERE multi-criteria filtering, ORDER BY descending sorting..."
+                className="text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+              />
             </div>
           </div>
         </div>
-      )}
+      </Card>
     </div>
   );
 }

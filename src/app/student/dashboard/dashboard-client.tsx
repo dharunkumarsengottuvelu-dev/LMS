@@ -1,26 +1,21 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  BookOpen, ClipboardList, Award, Calendar, Bell,
-  ChevronRight, Play, Clock, CheckCircle2, AlertCircle,
-  Trophy, ArrowRight, Code2, ShieldCheck, MonitorCheck, FileText, Check, Video, Terminal
+  BookOpen, Calendar, Clock, CheckCircle2,
+  ArrowRight, Code2, Play, Terminal, ChevronRight
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/types";
 import { isPracticeAssessment } from "@/lib/module-isolation";
-import {
-  ScrollReveal,
-  StaggerContainer,
-  ScrollCard,
-} from "@/components/ui/scroll-reveal";
+import { computeTrackProgress } from "@/lib/practice-progress";
+import { computeCourseProgress, useCourseProgressVersion } from "@/lib/course-progress";
+import { useStudentNotifications } from "@/lib/notifications";
 
 interface StudentDashboardData {
   profile: UserProfile | null;
@@ -42,15 +37,15 @@ function StatCard({
   icon?: React.ElementType; value: number; label: string; href: string; badgeText?: string;
 }) {
   return (
-    <Link href={href} prefetch={true} className="block h-full">
-      <Card className="h-full hover:border-blue-500/40 hover:shadow-xs transition-all bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-2xs rounded-xl group">
-        <CardContent className="p-4.5 flex flex-col justify-center h-full">
+    <Link href={href} prefetch={true} className="block h-full group focus-visible:outline-hidden">
+      <Card className="h-full min-h-[104px] hover:border-blue-500/50 hover:shadow-xs transition-all duration-200 bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-2xs rounded-xl">
+        <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
           <div className="flex items-center justify-between gap-2">
             <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
               {value}
             </span>
             {badgeText && (
-              <Badge variant="outline" className="bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 border-blue-200/70 dark:border-blue-800/40 rounded-md shrink-0">
+              <Badge variant="outline" className="bg-blue-50/70 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 text-[10px] font-semibold px-2 py-0.5 border-blue-200/70 dark:border-blue-800/50 rounded-md shrink-0">
                 {badgeText}
               </Badge>
             )}
@@ -61,12 +56,6 @@ function StatCard({
     </Link>
   );
 }
-
-import { useState, useEffect, useMemo } from "react";
-import { useLMSStore } from "@/lib/store/lms-store";
-import { computeTrackProgress } from "@/lib/practice-progress";
-import { computeCourseProgress, useCourseProgressVersion } from "@/lib/course-progress";
-import { useStudentNotifications } from "@/lib/notifications";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
   const router = useRouter();
@@ -84,8 +73,6 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const [solvedProblemIds, setSolvedProblemIds] = useState<Set<string>>(new Set());
   const [liveNowClasses, setLiveNowClasses] = useState<any[]>([]);
   const [liveStats, setLiveStats] = useState({ total: 0, live: 0, upcoming: 0 });
-  const [isMounted, setIsMounted] = useState(false);
-
   // Safe event-driven progress subscriber
   const progressVersion = useCourseProgressVersion();
 
@@ -117,29 +104,16 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   }, [storeAssessments]);
 
   useEffect(() => {
-    setIsMounted(true);
-    async function loadData() {
+    let active = true;
+
+    async function loadLiveData() {
       try {
-        // Fast path: Only fetch live session status and submission state if datasets were already hydrated by SSR.
-        // Fall back to fetching missing sets only if initial SSR arrays were empty.
-        const tasks: Promise<any>[] = [
+        const [lRes, sRes] = await Promise.all([
           fetch("/api/student/live-classes").catch(() => null),
           fetch("/api/code/submissions").catch(() => null),
-        ];
+        ]);
 
-        const needCourses = storeCourses.length === 0;
-        const needTracks = storeTracks.length === 0;
-        const needTests = storeAssessments.length === 0;
-        const needCoding = codingProblems.length === 0;
-
-        if (needCourses) tasks.push(fetch("/api/student/courses").catch(() => null));
-        if (needTracks) tasks.push(fetch("/api/student/practices").catch(() => null));
-        if (needTests) tasks.push(fetch("/api/student/tests").catch(() => null));
-        if (needCoding) tasks.push(fetch("/api/admin/coding").catch(() => null));
-
-        const results = await Promise.all(tasks);
-        const lRes = results[0];
-        const sRes = results[1];
+        if (!active) return;
 
         if (lRes && lRes.ok) {
           const lData = await lRes.json();
@@ -160,56 +134,21 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             setSolvedProblemIds(solved);
           }
         }
-
-        let nextIdx = 2;
-        if (needCourses) {
-          const cRes = results[nextIdx++];
-          if (cRes && cRes.ok) {
-            const cData = await cRes.json();
-            if (Array.isArray(cData.courses)) setStoreCourses(cData.courses);
-          }
-        }
-        if (needTracks) {
-          const pRes = results[nextIdx++];
-          if (pRes && pRes.ok) {
-            const pData = await pRes.json();
-            if (Array.isArray(pData.tracks)) setStoreTracks(pData.tracks);
-          }
-        }
-        if (needTests) {
-          const aRes = results[nextIdx++];
-          if (aRes && aRes.ok) {
-            const aData = await aRes.json();
-            if (Array.isArray(aData.tests)) {
-              const authentic = aData.tests.filter((t: any) => !isPracticeAssessment(t));
-              setStoreAssessments(authentic);
-            }
-          }
-        }
-        if (needCoding) {
-          const cdRes = results[nextIdx++];
-          if (cdRes && cdRes.ok) {
-            const cdData = await cdRes.json();
-            if (Array.isArray(cdData.problems)) {
-              const sorted = [...cdData.problems].sort((a: any, b: any) => {
-                const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-                const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-                return tB - tA;
-              });
-              setCodingProblems(sorted);
-            }
-          }
-        }
       } catch (err) {
-        console.error("Dashboard data load error", err);
+        console.warn("Dashboard live data fetch notice:", err);
       }
     }
-    loadData();
+
+    loadLiveData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const activeCourses = useMemo(() => {
     return storeCourses.map((c: any) => {
-      const courseProgress = computeCourseProgress(c, isMounted);
+      const courseProgress = computeCourseProgress(c, true);
       return {
         id: c.id,
         title: c.title,
@@ -223,36 +162,50 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         isCompleted: courseProgress.isCompleted,
       };
     });
-  }, [storeCourses, isMounted, progressVersion]);
+  }, [storeCourses, progressVersion]);
 
   // Enrich practice tracks with live dynamic progress and in-progress submodule detection
-  const enrichedPracticeTracks = storeTracks.map((track: any) => {
-    const {
-      progressPercentage,
-      completedSubModulesCount,
-      totalSubModulesCount,
-      nextSubModuleToContinue,
-      hasActiveSession,
-    } = computeTrackProgress(track, isMounted);
+  const enrichedPracticeTracks = useMemo(() => {
+    return storeTracks.map((track: any) => {
+      const {
+        progressPercentage,
+        completedSubModulesCount,
+        totalSubModulesCount,
+        nextSubModuleToContinue,
+        hasActiveSession,
+      } = computeTrackProgress(track, true);
 
-    return {
-      id: track.id,
-      title: track.title,
-      category: track.category || "Practice Track",
-      type: "practice",
-      completedCount: completedSubModulesCount,
-      totalCount: totalSubModulesCount,
-      progressPercentage,
-      targetSubModule: nextSubModuleToContinue,
-      hasActiveSession,
-      isCompleted: progressPercentage === 100 && totalSubModulesCount > 0,
-    };
-  });
+      const effectiveTotal = track.totalModules || totalSubModulesCount || 0;
+      const effectiveCompleted = track.completedModules ?? completedSubModulesCount ?? 0;
+      const effectiveProgress = typeof track.progressPercentage === "number"
+        ? Math.max(track.progressPercentage, progressPercentage)
+        : progressPercentage;
 
-  const allActiveLearning = [...enrichedPracticeTracks, ...activeCourses];
-  const displayEnrolledCount = activeCourses.length + enrichedPracticeTracks.length;
+      const effectiveHasActive =
+        hasActiveSession ||
+        Boolean(track.hasActiveSession) ||
+        (effectiveProgress > 0 && effectiveProgress < 100);
+
+      return {
+        id: track.id,
+        title: track.title,
+        category: track.category || "General",
+        type: "practice",
+        completedCount: effectiveCompleted,
+        totalCount: effectiveTotal,
+        progressPercentage: effectiveProgress,
+        targetSubModule: nextSubModuleToContinue,
+        hasActiveSession: effectiveHasActive,
+        isCompleted: effectiveProgress === 100 || (effectiveTotal > 0 && effectiveCompleted === effectiveTotal),
+      };
+    });
+  }, [storeTracks]);
+
+  const allActiveLearning = useMemo(() => {
+    return [...enrichedPracticeTracks, ...activeCourses];
+  }, [enrichedPracticeTracks, activeCourses]);
+
   const displayCompletedCount = enrichedPracticeTracks.reduce((acc, t) => acc + t.completedCount, 0);
-  const displayAssessmentsCount = enrichedPracticeTracks.length;
   const displayUnreadNotifications = liveUnreadCount;
 
   // Newest Code Lab Challenges sorted by created_at descending
@@ -268,72 +221,68 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
   return (
     <div className="space-y-6 w-full pb-12">
-      {/* 1. Welcome Banner Header - Compact Enterprise MNC Card */}
-      <ScrollReveal className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs overflow-visible">
+      {/* 1. Welcome Banner Header - Enterprise MNC Card */}
+      <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
           <div className="flex-1 min-w-0">
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Welcome back, {firstName}
             </h1>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+              Track your assigned modules, test schedules, and coding practice.
+            </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Button className="h-8.5 px-4 gap-1.5 font-semibold text-xs rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs" asChild>
+            <Button className="h-9 px-4 gap-1.5 font-semibold text-xs rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs transition-colors" asChild>
               <Link href="/student/practices" prefetch={true}>
                 <Code2 className="h-3.5 w-3.5" /> Practice Hub
               </Link>
             </Button>
-            <Button variant="outline" className="h-8.5 px-3.5 gap-1.5 font-semibold text-xs rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs" asChild>
+            <Button variant="outline" className="h-9 px-3.5 gap-1.5 font-semibold text-xs rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs transition-colors" asChild>
               <Link href="/student/tests" prefetch={true}>
                 <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Scheduled Tests
               </Link>
             </Button>
           </div>
         </div>
-      </ScrollReveal>
+      </div>
 
       {/* 2. Statistics Grid */}
-      <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <ScrollCard index={0} className="h-full">
-          <StatCard value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
-        </ScrollCard>
-        <ScrollCard index={1} className="h-full">
-          <StatCard value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
-        </ScrollCard>
-        <ScrollCard index={2} className="h-full">
-          <StatCard value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
-        </ScrollCard>
-        <ScrollCard index={3} className="h-full">
-          <StatCard value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
-        </ScrollCard>
-      </StaggerContainer>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
+        <StatCard value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
+        <StatCard value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
+        <StatCard value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
+      </div>
 
       {/* 3. Main Workspace Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Continue Learning & Practices (8 cols) */}
-        <ScrollReveal className="lg:col-span-8 space-y-6">
-          <Card className="bg-card border-border shadow-card">
-            <CardHeader className="p-6 pb-4 border-b border-border flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold text-foreground">
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
+            <CardHeader className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-zinc-800 flex flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <CardTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
                   Continue Learning & Practice
                 </CardTitle>
               </div>
 
-              <Button variant="ghost" size="sm" className="text-xs font-semibold text-primary" asChild>
+              <Button variant="ghost" size="sm" className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 h-8 px-2.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30" asChild>
                 <Link href="/student/practices">View All Tracks ({enrichedPracticeTracks.length}) →</Link>
               </Button>
             </CardHeader>
 
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-4 sm:p-5 space-y-3">
               {allActiveLearning.length === 0 ? (
-                <div className="py-8 text-center space-y-3">
-                  <p className="text-sm font-semibold text-foreground">No Active Practices or Courses Assigned</p>
-                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                <div className="py-8 text-center space-y-3 bg-slate-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
+                  <BookOpen className="h-8 w-8 text-slate-400 dark:text-zinc-500 mx-auto opacity-60" />
+                  <p className="text-sm font-semibold text-slate-900 dark:text-zinc-100">No Active Practices or Courses Assigned</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
                     Practice tracks and courses assigned by your Trainer or Admin will appear here automatically.
                   </p>
-                  <Button variant="outline" size="sm" className="mt-2" asChild>
+                  <Button variant="outline" size="sm" className="mt-2 text-xs font-semibold rounded-lg" asChild>
                     <Link href="/student/practices">Explore Practice Hub</Link>
                   </Button>
                 </div>
@@ -346,42 +295,52 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                     return (
                       <div
                         key={`track-${item.id}`}
-                        className="p-3 sm:p-3.5 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-blue-500/40 transition-all shadow-2xs group"
+                        className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200/70 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-blue-500/40 hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all shadow-2xs group"
                       >
-                        <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="space-y-1.5 min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-blue-200/70 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/30 rounded-md">
                               {item.category}
                             </Badge>
                           </div>
 
-                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate">
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 break-words leading-snug">
                             {item.title}
                           </h3>
 
                           <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400">
                             <span>{item.completedCount}/{item.totalCount} {item.totalCount === 1 ? "Module" : "Modules"}</span>
                             <span>•</span>
-                            <span className={isDone ? "text-emerald-600 font-semibold" : isInProgress ? "text-amber-600 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
+                            <span className={isDone ? "text-emerald-600 dark:text-emerald-400 font-semibold" : isInProgress ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
                               {item.progressPercentage}% Completed
                             </span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full max-w-md bg-slate-200/70 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-300",
+                                isDone ? "bg-emerald-600" : "bg-[#2563EB]"
+                              )}
+                              style={{ width: `${Math.min(100, Math.max(0, item.progressPercentage))}%` }}
+                            />
                           </div>
                         </div>
 
                         <div className="shrink-0 flex items-center gap-2">
                           <Button
                             size="sm"
-                            className={`h-8 px-3.5 text-xs font-semibold gap-1 rounded-lg shadow-2xs ${
+                            className={cn(
+                              "h-8.5 px-3.5 text-xs font-semibold gap-1.5 rounded-lg shadow-2xs transition-colors",
                               isDone
                                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                : isInProgress
-                                ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                                 : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                            }`}
+                            )}
                             asChild
                           >
                             <Link href={`/student/practices/${item.id}`}>
-                              <Play className="h-2.5 w-2.5 fill-current" />
+                              <Play className="h-3 w-3 fill-current" />
                               {isDone ? "Review" : isInProgress ? "Continue" : "Start"}
                             </Link>
                           </Button>
@@ -394,35 +353,47 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                   return (
                     <div
                       key={`course-${item.id}`}
-                      className="p-3 sm:p-3.5 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-blue-500/40 transition-all shadow-2xs"
+                      className="p-3.5 sm:p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200/70 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-blue-500/40 hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all shadow-2xs"
                     >
-                      <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="space-y-1.5 min-w-0 flex-1">
                         <div>
-                          <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/60 rounded-md">
+                          <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 rounded-md">
                             {item.category}
                           </Badge>
                         </div>
 
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 break-words leading-snug">
                           {item.title}
                         </h3>
 
                         <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400">
                           <span>{item.completedLessons} of {item.totalLessons} Lessons</span>
                           <span>•</span>
-                          <span className={item.isCompleted ? "text-emerald-600 font-semibold" : item.progressPercentage > 0 ? "text-blue-600 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
+                          <span className={item.isCompleted ? "text-emerald-600 dark:text-emerald-400 font-semibold" : item.progressPercentage > 0 ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
                             {item.progressPercentage}% Completed
                           </span>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="w-full max-w-md bg-slate-200/70 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-300",
+                              item.isCompleted ? "bg-emerald-600" : "bg-[#2563EB]"
+                            )}
+                            style={{ width: `${Math.min(100, Math.max(0, item.progressPercentage))}%` }}
+                          />
                         </div>
                       </div>
 
                       <Button
                         size="sm"
-                        className={`h-8 px-3.5 text-xs font-semibold gap-1 shrink-0 rounded-lg shadow-2xs ${
+                        className={cn(
+                          "h-8.5 px-3.5 text-xs font-semibold gap-1.5 shrink-0 rounded-lg shadow-2xs transition-colors",
                           item.isCompleted
                             ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                             : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                        }`}
+                        )}
                         asChild
                       >
                         <Link href={`/student/course/${item.slug}`}>
@@ -431,7 +402,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                           ) : item.progressPercentage > 0 ? (
                             <>Resume <ArrowRight className="h-3 w-3" /></>
                           ) : (
-                            <>Start <Play className="h-2.5 w-2.5 fill-current" /></>
+                            <>Start <Play className="h-3 w-3 fill-current" /></>
                           )}
                         </Link>
                       </Button>
@@ -441,11 +412,43 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               )}
             </CardContent>
           </Card>
-        </ScrollReveal>
 
-        {/* RIGHT COLUMN: Upcoming Evaluations & Quick Launch (4 cols) */}
-        <ScrollReveal delay={0.06} className="lg:col-span-4 space-y-6">
-          
+          {/* Quick Learning Hub & Shortcut Modules - Balances Left & Right columns */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Link href="/student/practices" className="group block">
+              <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-blue-500/50 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <Code2 className="h-4 w-4" />
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">Practice Hub & Modules</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Solve structured sub-modules, coding questions, and MCQs.</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/coding" className="group block">
+              <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-blue-500/50 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <Terminal className="h-4 w-4" />
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">Coding Lab & Challenges</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Open coding workbench, test cases, and algorithmic problems.</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Upcoming Evaluations & Challenges (4 cols) */}
+        <div className="lg:col-span-4 space-y-6">
           {/* Active Live Class Alert Card if Live Now */}
           {liveNowClasses.length > 0 && (
             <Card className="bg-emerald-950/20 border-emerald-500/40 shadow-card">
@@ -471,19 +474,27 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </Card>
           )}
 
-          {/* Active Evaluations Card */}
-          <Card className="bg-card border-border shadow-card">
-            <CardHeader className="p-4 border-b border-border bg-primary/5 rounded-t-[calc(var(--radius-xl)-1px)]">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-[#2563EB]" /> Upcoming Proctored Evaluations
-              </span>
+          {/* Proctored Evaluations Card */}
+          <Card className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
+            <CardHeader className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-zinc-800 flex flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <CardTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
+                  Upcoming Proctored Evaluations
+                </CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 h-8 px-2.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30" asChild>
+                <Link href="/student/assessments">All →</Link>
+              </Button>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 sm:p-5 space-y-3">
               {upcomingEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-6 text-center bg-background rounded-xl border border-border border-dashed">
-                  <Clock className="h-8 w-8 text-muted-foreground opacity-50 mb-2" />
-                  <p className="text-xs text-muted-foreground">No upcoming evaluations scheduled.</p>
-                  <Button variant="ghost" size="sm" className="mt-2 text-xs text-[#2563EB] hover:text-[#1D4ED8]" asChild>
+                <div className="flex flex-col items-center justify-center py-6 px-4 text-center bg-slate-50/60 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
+                  <div className="h-9 w-9 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center mb-2">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-xs font-medium text-slate-600 dark:text-zinc-400">No upcoming evaluations scheduled.</p>
+                  <Button variant="ghost" size="sm" className="mt-2 h-7 px-2.5 text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400" asChild>
                     <Link href="/student/assessments">
                       View Assessments <ArrowRight className="h-3 w-3 ml-1" />
                     </Link>
@@ -491,7 +502,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                 </div>
               ) : (
                 upcomingEvents.map((evt: any) => (
-                  <div key={evt.id} className="p-3.5 bg-background rounded-xl border border-border space-y-2 shadow-2xs hover:border-blue-500/40 transition-colors">
+                  <div key={evt.id} className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200/70 dark:border-zinc-800 space-y-2 shadow-2xs hover:border-blue-500/40 transition-colors">
                     <div className="flex items-center justify-between">
                       <Badge className={cn(
                         "text-[9px] font-bold uppercase",
@@ -509,11 +520,11 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                       </span>
                     </div>
 
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 break-words leading-snug">
                       {evt.title}
                     </h4>
 
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
                       <span className="truncate max-w-[150px]">{evt.time}</span>
                       <span className="shrink-0">{evt.duration}</span>
                     </div>
@@ -529,29 +540,30 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </CardContent>
           </Card>
 
-          {/* Challenges - Latest Challenges Card */}
-          <Card className="bg-card border-border shadow-card overflow-hidden">
-            <CardHeader className="p-4 pb-3 border-b border-border flex flex-row items-center justify-between">
+          {/* Challenges Card */}
+          <Card className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
+            <CardHeader className="p-4 sm:p-5 pb-3 sm:pb-3.5 border-b border-slate-200/80 dark:border-zinc-800 flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-xs font-bold text-foreground flex items-center gap-2 tracking-tight">
+                <Code2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <CardTitle className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2 tracking-tight">
                   Challenges
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/40">
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/40 rounded-md">
                     New
                   </Badge>
                 </CardTitle>
               </div>
               <Link
                 href="/coding"
-                className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
               >
-                All Problems
+                All Problems →
               </Link>
             </CardHeader>
-            <CardContent className="p-3 space-y-2.5">
+            <CardContent className="p-3 sm:p-4 space-y-2">
               {latestCodingProblems.length === 0 ? (
-                <div className="text-center py-6 px-3">
-                  <p className="text-xs font-semibold text-foreground">No Challenges Available</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Coding problems will appear here once published.</p>
+                <div className="text-center py-6 px-3 bg-slate-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
+                  <p className="text-xs font-semibold text-slate-900 dark:text-zinc-100">No Challenges Available</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Coding problems will appear here once published.</p>
                   <Button className="mt-3 h-7 text-xs rounded-lg font-semibold" variant="outline" asChild>
                     <Link href="/coding">Explore Challenges</Link>
                   </Button>
@@ -570,7 +582,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                     <Link
                       key={prob.id}
                       href={`/coding/problems/${prob.slug || prob.id}`}
-                      className="group flex items-center justify-between p-2.5 rounded-xl bg-background hover:bg-blue-50/50 dark:hover:bg-blue-950/20 border border-border hover:border-blue-300 dark:hover:border-blue-800/60 transition-all shadow-2xs"
+                      className="group flex items-center justify-between p-2.5 rounded-lg bg-slate-50/60 dark:bg-zinc-900/50 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 border border-slate-200/70 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-800/60 transition-all shadow-2xs"
                     >
                       <div className="flex-1 min-w-0 pr-2.5">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -581,7 +593,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                             {prob.difficulty || "medium"}
                           </Badge>
                           {prob.category && (
-                            <span className="text-[10px] text-muted-foreground truncate max-w-[110px]">
+                            <span className="text-[10px] text-slate-500 dark:text-zinc-400 truncate max-w-[110px]">
                               {prob.category}
                             </span>
                           )}
@@ -591,7 +603,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                             </Badge>
                           )}
                         </div>
-                        <h4 className="text-xs font-bold text-foreground truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           {prob.title}
                         </h4>
                       </div>
@@ -612,8 +624,8 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               )}
             </CardContent>
             {latestCodingProblems.length > 0 && (
-              <div className="p-2.5 bg-muted/20 border-t border-border flex items-center justify-between text-[11px]">
-                <span className="text-muted-foreground font-medium">
+              <div className="p-2.5 bg-slate-50/50 dark:bg-zinc-900/40 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 dark:text-zinc-400 font-medium">
                   Latest in Challenges
                 </span>
                 <Link
@@ -625,8 +637,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               </div>
             )}
           </Card>
-        </ScrollReveal>
-
+        </div>
       </div>
     </div>
   );

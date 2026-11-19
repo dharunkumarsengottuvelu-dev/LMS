@@ -1089,11 +1089,13 @@ export default function LandingPage() {
               <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white border-slate-200 p-6 flex flex-col justify-between">
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-slate-100">
-                    <SensilearnLogo
-                      size="sm"
-                      variant="mark"
-                      href="/"
-                    />
+                    <div onClick={() => setIsMenuOpen(false)}>
+                      <SensilearnLogo
+                        size="sm"
+                        variant="mark"
+                        href="/"
+                      />
+                    </div>
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
@@ -1107,10 +1109,10 @@ export default function LandingPage() {
 
                 <div className="pt-6 border-t border-slate-100 space-y-2.5">
                   <Button variant="outline" className="w-full justify-center text-xs font-semibold h-10 border-slate-200" asChild>
-                    <Link href="/login">Sign In</Link>
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>Sign In</Link>
                   </Button>
                   <Button className="w-full justify-center bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-10" asChild>
-                    <Link href="/login">Get Started</Link>
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>Get Started</Link>
                   </Button>
                 </div>
               </SheetContent>

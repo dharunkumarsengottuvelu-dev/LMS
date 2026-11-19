@@ -1110,7 +1110,11 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
       // 1. Register Code Auto-Completions with trigger characters
       monaco.languages.registerCompletionItemProvider(langId, {
         triggerCharacters: [".", ":", ">", "<", "$", "@", "(", '"', "'", "/"],
-        provideCompletionItems: (model, position) => {
+        provideCompletionItems: (model, position, context, token) => {
+          if (token?.isCancellationRequested) {
+            return { suggestions: [] };
+          }
+
           const word = model.getWordUntilPosition(position);
           const range: Monaco.IRange = {
             startLineNumber: position.lineNumber,
@@ -1158,7 +1162,11 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
 
       // 2. Register Native Document Formatting (Shift + Alt + F)
       monaco.languages.registerDocumentFormattingEditProvider(langId, {
-        provideDocumentFormattingEdits: (model, options) => {
+        provideDocumentFormattingEdits: (model, options, token) => {
+          if (token?.isCancellationRequested) {
+            return [];
+          }
+
           const fullText = model.getValue();
           const formatted = formatSourceCode(fullText, langId, {
             tabSize: options.tabSize,
@@ -1176,7 +1184,11 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
 
       // 3. Register Native Range Formatting (Format on Paste / Selection)
       monaco.languages.registerDocumentRangeFormattingEditProvider(langId, {
-        provideDocumentRangeFormattingEdits: (model, range, options) => {
+        provideDocumentRangeFormattingEdits: (model, range, options, token) => {
+          if (token?.isCancellationRequested) {
+            return [];
+          }
+
           const fullText = model.getValue();
           const formatted = formatSourceCode(fullText, langId, {
             tabSize: options.tabSize,

@@ -6,7 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/loading";
 import { cn, formatCleanProblemTitle } from "@/lib/utils";
 import { PageHeader } from "@/components/layouts/page-header";
-import { Search, Plus, UploadCloud } from "lucide-react";
+import { Search, Plus, UploadCloud, ChevronDown, Code2, Database } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -15,6 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { SqlProblemCreator } from "@/components/admin/sql-problem-creator";
+import { SqlBulkUploadModal } from "@/components/admin/sql-bulk-upload-modal";
 import { CodingProblemsService } from "@/services/coding-problems.service";
 import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import type { CodingProblem } from "@/types/coding";
@@ -34,7 +42,8 @@ interface CodingManagementHubProps {
 }
 
 export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps) {
-  const [viewMode, setViewMode] = useState<"list" | "create" | "edit">("list");
+  const [viewMode, setViewMode] = useState<"list" | "create" | "create_sql" | "edit" | "edit_sql">("list");
+  const [bulkUploadType, setBulkUploadType] = useState<"programming" | "sql">("programming");
   const [problems, setProblems] = useState<(ExtendedCodingProblem | CodingProblem)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingProblem, setEditingProblem] = useState<CodingProblem | null>(null);
@@ -167,8 +176,18 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
   }, [problems, searchQuery, selectedDifficulty, selectedCategory]);
 
   const handleOpenEdit = (problem: ExtendedCodingProblem | CodingProblem) => {
+    const isSql =
+      problem.category === "Databases" ||
+      (problem as any).type === "sql" ||
+      (problem as any).question_type === "sql" ||
+      Boolean((problem as any).sql_engine);
+
     setEditingProblem(problem as CodingProblem);
-    setViewMode("edit");
+    if (isSql) {
+      setViewMode("edit_sql");
+    } else {
+      setViewMode("edit");
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -228,6 +247,27 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             setViewMode("list");
             refreshProblems();
           }}
+          onChangeQuestionType={(type) => {
+            if (type === "sql") setViewMode("create_sql");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // If in Create SQL Mode
+  if (viewMode === "create_sql") {
+    return (
+      <div className="w-full">
+        <SqlProblemCreator
+          onCancel={() => setViewMode("list")}
+          onSave={() => {
+            setViewMode("list");
+            refreshProblems();
+          }}
+          onChangeQuestionType={(type) => {
+            if (type === "programming") setViewMode("create");
+          }}
         />
       </div>
     );
@@ -248,6 +288,32 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             handleModeChange("list");
             refreshProblems();
           }}
+          onChangeQuestionType={(type) => {
+            if (type === "sql") setViewMode("edit_sql");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // If in Edit SQL Mode
+  if (viewMode === "edit_sql" && editingProblem) {
+    return (
+      <div className="w-full">
+        <SqlProblemCreator
+          initialProblem={editingProblem}
+          onCancel={() => {
+            setEditingProblem(null);
+            handleModeChange("list");
+          }}
+          onSave={() => {
+            setEditingProblem(null);
+            handleModeChange("list");
+            refreshProblems();
+          }}
+          onChangeQuestionType={(type) => {
+            if (type === "programming") setViewMode("edit");
+          }}
         />
       </div>
     );
@@ -258,25 +324,71 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
     <div className="space-y-8">
       {/* Unified Enterprise Page Header matching PracticesHub */}
       <PageHeader
-        title={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
+        title={role === "admin" ? "Coding & SQL Problems Repository" : "Coding & SQL Practice Problems"}
         actions={
-          <div className="flex items-center gap-2.5">
-            <Button
-              variant="outline"
-              onClick={() => setIsBulkUploadOpen(true)}
-              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm"
-            >
-              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload
-            </Button>
-            <Button
-              onClick={() => {
-                setEditingProblem(null);
-                handleModeChange("create");
-              }}
-              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs"
-            >
-              <Plus className="h-4 w-4" /> Create Problem
-            </Button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            {/* Unified Bulk Upload Button with Dropdown Options */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="h-[40px] flex items-center gap-2 px-3.5 sm:px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B] hover:bg-slate-50 dark:hover:bg-zinc-800/60 text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-2xs cursor-pointer outline-none transition-colors"
+                title="Bulk import questions via Excel / CSV"
+              >
+                <UploadCloud className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                <span>Bulk Upload</span>
+                <ChevronDown className="h-3 w-3 text-slate-400" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setBulkUploadType("programming");
+                    setIsBulkUploadOpen(true);
+                  }}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Programming Questions
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setBulkUploadType("sql");
+                    setIsBulkUploadOpen(true);
+                  }}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  SQL Questions
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Create Problem Button with Dropdown (Programming & SQL Question) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="h-[40px] flex items-center gap-1.5 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold shadow-xs text-xs cursor-pointer outline-none transition-colors shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Create Problem</span>
+                <ChevronDown className="h-3 w-3 text-white/80" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditingProblem(null);
+                    handleModeChange("create");
+                  }}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  Programming Question
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditingProblem(null);
+                    setViewMode("create_sql");
+                  }}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  SQL Question
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
@@ -293,7 +405,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           />
         </div>
 
-        <div className="flex items-center w-full md:w-auto shrink-0 gap-2 border-t md:border-t-0 md:border-l border-[#E5E7EB] dark:border-[#27272A] pt-3 md:pt-0 md:pl-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center w-full md:w-auto shrink-0 gap-2 border-t md:border-t-0 md:border-l border-[#E5E7EB] dark:border-[#27272A] pt-3 md:pt-0 md:pl-4">
           <Select value={selectedDifficulty} onValueChange={(val) => handleDifficultyChange(val || "all")}>
             <SelectTrigger className="h-10 text-xs w-full md:w-[150px] bg-transparent border-none shadow-none focus:ring-0">
               <SelectValue placeholder="All Difficulties" />
@@ -569,14 +681,27 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Upload Modal for Coding Problems */}
-      <BulkUploadModal
-        isOpen={isBulkUploadOpen}
-        onClose={() => setIsBulkUploadOpen(false)}
-        moduleType="coding_problem"
-        moduleTitle={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
-        onImport={handleBulkImport}
-      />
+      {/* Unified Bulk Upload Modal (Programming & SQL Questions) */}
+      {bulkUploadType === "programming" ? (
+        <BulkUploadModal
+          isOpen={isBulkUploadOpen}
+          onClose={() => setIsBulkUploadOpen(false)}
+          moduleType="coding_problem"
+          moduleTitle={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
+          onImport={handleBulkImport}
+          onSwitchToSql={() => setBulkUploadType("sql")}
+        />
+      ) : (
+        <SqlBulkUploadModal
+          isOpen={isBulkUploadOpen}
+          onClose={() => setIsBulkUploadOpen(false)}
+          onSuccess={() => {
+            setIsBulkUploadOpen(false);
+            refreshProblems();
+          }}
+          onSwitchToProgramming={() => setBulkUploadType("programming")}
+        />
+      )}
     </div>
   );
 }

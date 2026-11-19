@@ -91,12 +91,30 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
 }
 
 export default function LoginPage() {
+  const [mounted, setMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [googleWidth, setGoogleWidth] = useState<string>("380");
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (typeof window !== "undefined") {
+        const w = Math.max(220, Math.min(window.innerWidth - 48, 400));
+        setGoogleWidth(String(w));
+      }
+    };
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
 
   // Add your Google Client ID here (or use env variables: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
   const GOOGLE_CLIENT_ID = "658302087365-lurl6cagv36c4bm8ub4gs7b29930l846.apps.googleusercontent.com";
@@ -263,21 +281,24 @@ export default function LoginPage() {
 
         {/* Official Google Sign-in Component */}
         <div className="w-full flex justify-center">
-          <div className="w-full relative [&>div]:w-full [&>div>div]:w-full">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => toast({ 
-                title: "Login Interrupted", 
-                description: "The Google sign-in window was closed or failed to load.", 
-                variant: "destructive" 
-              })}
-              useOneTap
-              theme="outline"
-              size="large"
-              text="continue_with"
-              shape="rectangular"
-              width="420" // Forces the iframe to match your form width
-            />
+          <div className="w-full relative [&>div]:w-full [&>div>div]:w-full min-h-[44px]">
+            {mounted ? (
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => toast({ 
+                  title: "Login Interrupted", 
+                  description: "The Google sign-in window was closed or failed to load. You can sign in using your email and password below.", 
+                  variant: "destructive" 
+                })}
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="rectangular"
+                width={googleWidth}
+              />
+            ) : (
+              <div className="w-full h-11 rounded-lg bg-slate-100 dark:bg-zinc-800 animate-pulse" />
+            )}
           </div>
         </div>
 

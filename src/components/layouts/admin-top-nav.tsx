@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, ShieldCheck, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Menu, User, Settings } from "lucide-react";
@@ -23,6 +24,11 @@ import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 export function AdminTopNav() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border transition-colors duration-200">
@@ -75,21 +81,23 @@ export function AdminTopNav() {
           <NotificationBellDropdown />
 
           {/* Mobile Hamburger Menu Trigger */}
-          <Sheet>
-            <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200 cursor-pointer">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
             </SheetTrigger>
             <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
               <SheetHeader className="text-left pb-4 border-b border-border">
-                <SensilearnLogo
-                  size="sm"
-                  theme="auto"
-                  href="/admin/dashboard"
-                  badge={
-                    <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">ADMIN</Badge>
-                  }
-                />
+                <div onClick={() => setMobileOpen(false)}>
+                  <SensilearnLogo
+                    size="sm"
+                    theme="auto"
+                    href="/admin/dashboard"
+                    badge={
+                      <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">ADMIN</Badge>
+                    }
+                  />
+                </div>
               </SheetHeader>
 
               <nav className="flex flex-col gap-1.5 pt-6">
@@ -102,6 +110,7 @@ export function AdminTopNav() {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={() => setMobileOpen(false)}
                       className={cn(
                         "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                         isActive

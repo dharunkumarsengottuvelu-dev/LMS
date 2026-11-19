@@ -3021,14 +3021,14 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 shadow-xs space-y-4">
         {/* Top Controls Row: Report Scope Switch & Export Button */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-center gap-1.5 p-1 bg-[#F3F4F6] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] self-start">
+          <div className="flex items-center gap-1 p-1 bg-[#F3F4F6] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-full sm:w-auto">
             <button
               type="button"
               onClick={() => {
                 setReportScope("overall");
                 setSelectedReportBatch("all");
               }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              className={`flex-1 sm:flex-initial text-center px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                 reportScope === "overall"
                   ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-xs"
                   : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
@@ -3046,7 +3046,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   setSelectedReportBatch("all");
                 }
               }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              className={`flex-1 sm:flex-initial text-center px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                 reportScope === "batch"
                   ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-xs"
                   : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
@@ -3056,13 +3056,14 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             </button>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <DropdownMenu>
               <DropdownMenuTrigger
                 disabled={isExporting || isLoadingReport}
-                className="h-[40px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-bold px-5 rounded-xl text-xs shadow-md shadow-[#2563EB]/20 outline-none inline-flex items-center justify-center transition-colors cursor-pointer"
+                className="h-[40px] w-full sm:w-auto bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-bold px-5 rounded-xl text-xs shadow-md shadow-[#2563EB]/20 outline-none inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
-                {isExporting ? "Generating Export..." : "Export Report"}
+                <Download className="h-3.5 w-3.5 shrink-0" />
+                <span>{isExporting ? "Generating Export..." : "Export Report"}</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 p-1.5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-xl">
                 <DropdownMenuItem
@@ -3115,17 +3116,17 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               }}
             >
               <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue placeholder={reportScope === "batch" ? "Select Batch..." : "Batch: All Batches"} />
+                <SelectValue placeholder={reportScope === "batch" ? "Select Batch..." : "All Batches"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  {reportScope === "batch" ? "All Batches (Unfiltered)" : "Batch: All Batches"}
+                  {reportScope === "batch" ? "All Batches (Unfiltered)" : "All Batches"}
                 </SelectItem>
                 {Array.from(new Set([...availableBatchesList, ...availableBatches])).filter(Boolean).length === 0 ? (
                   <SelectItem value="__none__" disabled>No batches available yet</SelectItem>
                 ) : (
                   Array.from(new Set([...availableBatchesList, ...availableBatches])).filter(Boolean).map((batch) => (
-                    <SelectItem key={batch} value={batch}>Batch: {batch}</SelectItem>
+                    <SelectItem key={batch} value={batch}>{batch}</SelectItem>
                   ))
                 )}
               </SelectContent>
@@ -3144,15 +3145,15 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               }}
             >
               <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue placeholder="Date: All Time" />
+                <SelectValue placeholder="All Time" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Date: All Time</SelectItem>
-                <SelectItem value="today">Date: Today</SelectItem>
-                <SelectItem value="7d">Date: Last 7 Days</SelectItem>
-                <SelectItem value="30d">Date: Last 30 Days</SelectItem>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="7d">Last 7 Days</SelectItem>
+                <SelectItem value="30d">Last 30 Days</SelectItem>
                 <SelectItem value="custom">
-                  {reportCustomFrom && reportCustomTo ? `Date: ${reportCustomFrom} to ${reportCustomTo}` : "Date: Custom Range..."}
+                  {reportCustomFrom && reportCustomTo ? `${reportCustomFrom} to ${reportCustomTo}` : "Custom Range..."}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -3162,13 +3163,13 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           <div>
             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
               <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue placeholder="Status: All Statuses" />
+                <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Status: All Statuses</SelectItem>
-                <SelectItem value="active">Status: Active</SelectItem>
-                <SelectItem value="flagged">Status: Flagged</SelectItem>
-                <SelectItem value="suspended">Status: Suspended</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="flagged">Flagged</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -3177,13 +3178,13 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           <div>
             <Select value={reportCourseFilter} onValueChange={(val) => setReportCourseFilter(val || "all")}>
               <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue placeholder="Course: All Courses" />
+                <SelectValue placeholder="All Courses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Course: All Courses</SelectItem>
+                <SelectItem value="all">All Courses</SelectItem>
                 {availableCoursesList.map((course) => (
                   <SelectItem key={course.id} value={course.id}>
-                    Course: {course.title}
+                    {course.title}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -72,7 +72,7 @@ export default function AuthLayout({
           RIGHT PANEL: AUTHENTICATION CONSOLE (7 cols)
           Floating naturally through whitespace, zero borders or cards
           ────────────────────────────────────────────────────────── */}
-      <div className="lg:col-span-7 flex flex-col justify-center items-center p-6 sm:p-8 lg:p-10 relative bg-white min-h-screen lg:h-full overflow-y-auto">
+      <div className="lg:col-span-7 flex flex-col justify-center items-center p-4 sm:p-8 lg:p-10 relative bg-white min-h-screen lg:h-full overflow-y-auto">
         
         {/* Mobile Header */}
         <div className="lg:hidden w-full max-w-[420px] flex items-center justify-between pb-4 mb-4 border-b border-slate-100">

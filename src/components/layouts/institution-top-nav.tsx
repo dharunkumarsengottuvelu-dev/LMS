@@ -30,6 +30,11 @@ const institutionNavigation = [
 export function InstitutionTopNav() {
   const pathname = usePathname();
   const { profile, user, signOut } = useAuth();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   const collegeName = (profile as any)?.college || profile?.first_name || "Institution";
   const userRole = (profile?.role || user?.user_metadata?.role || "institution").toUpperCase();
@@ -97,22 +102,25 @@ export function InstitutionTopNav() {
           </div>
 
           {/* Mobile Sheet Menu */}
-          <Sheet>
-            <SheetTrigger className="lg:hidden p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger className="lg:hidden p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer">
               <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle navigation menu</span>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 bg-card border-r border-border p-6">
               <SheetHeader className="text-left pb-4 border-b border-border">
-                <SensilearnLogo
-                  size="sm"
-                  theme="auto"
-                  href="/institution/overview"
-                  badge={
-                    <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">
-                      INSTITUTION
-                    </Badge>
-                  }
-                />
+                <div onClick={() => setMobileOpen(false)}>
+                  <SensilearnLogo
+                    size="sm"
+                    theme="auto"
+                    href="/institution/overview"
+                    badge={
+                      <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">
+                        INSTITUTION
+                      </Badge>
+                    }
+                  />
+                </div>
               </SheetHeader>
 
               <nav className="flex flex-col gap-1.5 pt-6">
@@ -126,6 +134,7 @@ export function InstitutionTopNav() {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={() => setMobileOpen(false)}
                       className={cn(
                         "flex items-center px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                         isActive

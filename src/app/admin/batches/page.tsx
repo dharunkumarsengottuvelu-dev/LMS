@@ -918,14 +918,9 @@ export default function AdminBatchesPage() {
                       </td>
 
                       <td className="py-2.5 px-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900 dark:text-white text-xs">
-                            {batch.batchName}
-                          </span>
-                          <span className="text-[10px] font-mono bg-slate-100 dark:bg-[#27272A] text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-semibold shrink-0">
-                            {batch.code || "BAT-ID"}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-slate-900 dark:text-white text-xs">
+                          {batch.batchName}
+                        </span>
                       </td>
 
                       <td className="py-2.5 px-3 align-middle">
@@ -938,10 +933,10 @@ export default function AdminBatchesPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenAssignInstitution(batch)}
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 underline decoration-dashed whitespace-nowrap"
+                            title="Click to assign partner institution"
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-normal border border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900/50 text-slate-500 dark:text-zinc-400 hover:text-blue-600 hover:border-blue-300 dark:hover:text-blue-400 cursor-pointer transition-colors"
                           >
-                            <Plus className="h-3 w-3" />
-                            <span>Link</span>
+                            Unassigned
                           </button>
                         )}
                       </td>
@@ -1041,9 +1036,9 @@ export default function AdminBatchesPage() {
       {/* MODAL 1: CREATE / EDIT BATCH DIALOG */}
       {/* ========================================================================= */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
+            <DialogTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
               {editingBatch ? "Edit Batch Details" : "Create New Batch"}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
@@ -1051,7 +1046,7 @@ export default function AdminBatchesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveBatchSubmit} className="space-y-4 py-2">
+          <form onSubmit={handleSaveBatchSubmit} className="space-y-4 py-1">
             {/* Field 1: Batch Name (Required) */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-900 dark:text-white">
@@ -1068,12 +1063,12 @@ export default function AdminBatchesPage() {
 
             {/* Field 2: College / Institution (Optional) */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <label className="text-xs font-bold text-slate-900 dark:text-white">
                   Partner Institution / College <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
                 </label>
                 {institutions.length > 0 && (
-                  <span className="text-[10px] text-blue-600 font-semibold">
+                  <span className="text-[10px] text-blue-600 font-semibold shrink-0">
                     {institutions.length} partner {institutions.length === 1 ? "institution" : "institutions"} registered
                   </span>
                 )}
@@ -1176,18 +1171,18 @@ export default function AdminBatchesPage() {
               />
             </div>
 
-            <DialogFooter className="pt-4 border-t border-slate-100 dark:border-zinc-800 gap-2">
+            <DialogFooter className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="h-10 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800"
+                className="w-full sm:w-auto h-11 sm:h-10 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 cursor-pointer"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="h-10 px-6 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs"
+                className="w-full sm:w-auto h-11 sm:h-10 px-6 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs cursor-pointer"
               >
                 {editingBatch ? "Save Changes" : "Create Batch"}
               </Button>
@@ -1296,7 +1291,7 @@ export default function AdminBatchesPage() {
       {/* MODAL 3: ADD STUDENTS TO BATCH (Multi-Select Supported) */}
       {/* ========================================================================= */}
       <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
               {viewingBatch
@@ -1441,22 +1436,24 @@ export default function AdminBatchesPage() {
             )}
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
             <Button
+              type="button"
               variant="outline"
               onClick={() => {
                 setSelectedStudentIdsToAdd([]);
                 setIsAddStudentModalOpen(false);
               }}
-              className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800"
+              className="w-full sm:w-auto h-11 sm:h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 cursor-pointer"
             >
               Close
             </Button>
             {selectedStudentIdsToAdd.length > 0 && effectiveBatchForAssignment && (
               <Button
+                type="button"
                 onClick={() => handleAssignStudentsToBatch(effectiveBatchForAssignment.id, selectedStudentIdsToAdd)}
                 disabled={isAssigningStudents}
-                className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs"
+                className="w-full sm:w-auto h-11 sm:h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs cursor-pointer"
               >
                 Assign {selectedStudentIdsToAdd.length} Selected Student{selectedStudentIdsToAdd.length > 1 ? "s" : ""}
               </Button>
@@ -1469,7 +1466,7 @@ export default function AdminBatchesPage() {
       {/* MODAL 4: ASSIGN BATCH TO PARTNER INSTITUTION */}
       {/* ========================================================================= */}
       <Dialog open={isAssignInstitutionModalOpen} onOpenChange={setIsAssignInstitutionModalOpen}>
-        <DialogContent className="max-w-lg bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
               Assign Batch to Partner Institution
@@ -1485,9 +1482,11 @@ export default function AdminBatchesPage() {
               <div className="bg-slate-50/70 dark:bg-zinc-900/70 border border-slate-200/80 dark:border-zinc-800 p-4 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Target Cohort</span>
-                  <span className="font-mono text-[10px] text-slate-500 bg-slate-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                    {assigningBatch.code || `ID: ${assigningBatch.id.slice(0, 6)}`}
-                  </span>
+                  {assigningBatch.code && !assigningBatch.code.startsWith("BAT-") ? (
+                    <span className="font-mono text-[10px] text-slate-500 bg-slate-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                      {assigningBatch.code}
+                    </span>
+                  ) : null}
                 </div>
                 <h4 className="text-base font-bold text-slate-900 dark:text-white">
                   {assigningBatch.batchName}
@@ -1621,22 +1620,24 @@ export default function AdminBatchesPage() {
             </div>
           )}
 
-          <DialogFooter className="pt-2 gap-2">
+          <DialogFooter className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setIsAssignInstitutionModalOpen(false)}
               disabled={isSavingInstitutionAssignment}
-              className="h-10 text-xs rounded-xl border-slate-200 dark:border-zinc-800"
+              className="w-full sm:w-auto h-11 sm:h-10 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 cursor-pointer"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={handleSaveInstitutionAssignment}
               disabled={
                 isSavingInstitutionAssignment ||
                 (selectedInstitutionCollege === "custom" && !customCollegeInput.trim())
               }
-              className="h-10 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold rounded-xl shadow-xs"
+              className="w-full sm:w-auto h-11 sm:h-10 px-5 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold rounded-xl shadow-xs cursor-pointer"
             >
               {isSavingInstitutionAssignment ? "Saving..." : "Confirm & Assign Batch"}
             </Button>
@@ -1648,7 +1649,7 @@ export default function AdminBatchesPage() {
       {/* MODAL 5: BULK UPLOAD BATCHES (Excel & CSV) */}
       {/* ========================================================================= */}
       <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
-        <DialogContent className="max-w-3xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
           <DialogHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
@@ -1814,20 +1815,22 @@ export default function AdminBatchesPage() {
             </div>
           )}
 
-          <DialogFooter className="pt-2 gap-2">
+          <DialogFooter className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setIsBulkModalOpen(false)}
               disabled={isUploadingBulk}
-              className="h-10 text-xs rounded-xl border-slate-200 dark:border-zinc-800"
+              className="w-full sm:w-auto h-11 sm:h-10 px-5 text-xs rounded-xl border-slate-200 dark:border-zinc-800 cursor-pointer"
             >
               Cancel
             </Button>
             {bulkParsedRows.length > 0 && (
               <Button
+                type="button"
                 onClick={handleExecuteBulkImport}
                 disabled={isUploadingBulk || bulkParsedRows.filter((r) => r.isValid).length === 0}
-                className="h-10 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold rounded-xl shadow-xs"
+                className="w-full sm:w-auto h-11 sm:h-10 px-5 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold rounded-xl shadow-xs cursor-pointer"
               >
                 {isUploadingBulk ? "Processing Import..." : `Confirm & Create ${bulkParsedRows.filter((r) => r.isValid).length} Batches`}
               </Button>

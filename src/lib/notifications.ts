@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useTransition } from "react";
+import { useState, useEffect, useCallback, useRef, useTransition } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 
 export type NotificationType =
@@ -75,21 +75,32 @@ export function useStudentNotifications() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const lastFetchRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!isAuthenticated) {
-      setIsLoading(false);
+  const fetchNotifications = useCallback(async (force = false) => {
+    if (!isAuthenticated || isFetchingRef.current) {
+      return;
+    }
+
+    // Throttle non-forced fetches to once every 45s minimum
+    const now = Date.now();
+    if (!force && now - lastFetchRef.current < 45000) {
       return;
     }
 
     try {
+      isFetchingRef.current = true;
       setIsLoading(true);
       const res = await fetch("/api/student/notifications", {
         headers: { "Cache-Control": "no-cache" },
       });
 
+      lastFetchRef.current = Date.now();
+
       if (res.status === 401) {
         setIsLoading(false);
+        isFetchingRef.current = false;
         return;
       }
 
@@ -113,6 +124,8 @@ export function useStudentNotifications() {
     } catch (err) {
       console.warn("Failed to fetch student notifications:", err);
       setIsLoading(false);
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [isAuthenticated]);
 
@@ -123,15 +136,15 @@ export function useStudentNotifications() {
       return;
     }
 
-    fetchNotifications();
+    fetchNotifications(true);
 
-    // 1. Periodic background polling every 45 seconds
-    const interval = setInterval(fetchNotifications, 45000);
+    // 1. Periodic background polling every 60 seconds
+    const interval = setInterval(() => fetchNotifications(false), 60000);
 
-    // 2. Revalidate when tab regains focus or becomes visible
+    // 2. Revalidate when tab regains focus or becomes visible (with 60s cooldown)
     const handleFocus = () => {
       if (document.visibilityState === "visible") {
-        fetchNotifications();
+        fetchNotifications(false);
       }
     };
     window.addEventListener("focus", handleFocus);
@@ -139,7 +152,7 @@ export function useStudentNotifications() {
 
     // 3. Listen for internal broadcast events (e.g., after sending a message)
     const handleCustomUpdate = () => {
-      fetchNotifications();
+      fetchNotifications(true);
     };
     window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, handleCustomUpdate);
 

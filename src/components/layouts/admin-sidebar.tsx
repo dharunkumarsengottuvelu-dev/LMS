@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +20,7 @@ import { getInitials } from "@/lib/utils";
 import { adminNavigation, NavItem } from "@/config/navigation";
 import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
-function NavItemComponent({ item }: { item: NavItem }) {
+function NavItemComponent({ item, onClick }: { item: NavItem; onClick?: () => void }) {
   const pathname = usePathname();
   const isExact = pathname === item.href;
   const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
@@ -31,6 +31,7 @@ function NavItemComponent({ item }: { item: NavItem }) {
   return (
     <Link
       href={item.href}
+      onClick={onClick}
       className={cn(
         "flex items-center gap-3 px-3.5 h-11 rounded-lg text-sm font-medium transition-colors relative",
         isActive
@@ -45,26 +46,33 @@ function NavItemComponent({ item }: { item: NavItem }) {
 }
 
 export function AdminSidebar() {
+  const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white dark:bg-[#18181B] border-r border-[#E5E7EB] dark:border-[#27272A]">
       {/* 72px Top Header */}
       <div className="flex items-center px-6 h-[72px] border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
-        <SensilearnLogo
-          size="md"
-          subtitle="Enterprise Admin"
-          theme="auto"
-          href="/admin/dashboard"
-          priority
-        />
+        <div onClick={() => setMobileOpen(false)}>
+          <SensilearnLogo
+            size="md"
+            subtitle="Enterprise Admin"
+            theme="auto"
+            href="/admin/dashboard"
+            priority
+          />
+        </div>
       </div>
 
       {/* Navigation list */}
       <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
         {adminNavigation.map((item) => (
-          <NavItemComponent key={item.href} item={item} />
+          <NavItemComponent key={item.href} item={item} onClick={() => setMobileOpen(false)} />
         ))}
       </nav>
 

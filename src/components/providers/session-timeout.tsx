@@ -26,9 +26,13 @@ export function SessionTimeout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isStudent = profile?.role === "student";
+  const profileId = profile?.id;
+  const isStudentPortal = pathname?.startsWith("/student");
+
   useEffect(() => {
     // Only apply timeout for logged-in students in the student portal
-    if (!profile || profile.role !== "student" || !pathname?.startsWith("/student")) {
+    if (!profileId || !isStudent || !isStudentPortal) {
       return;
     }
 
@@ -86,7 +90,7 @@ export function SessionTimeout({ children }: { children: React.ReactNode }) {
       });
       clearInterval(intervalId);
     };
-  }, [profile, pathname, signOut]);
+  }, [profileId, isStudent, isStudentPortal, signOut]);
 
   return <>{children}</>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +23,10 @@ export function StudentSidebar() {
   const { unreadCount } = useStudentNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const userEmail = (profile as any)?.email || user?.email || "";
   const displayAvatar =
     profile?.avatar_url ||
@@ -34,13 +38,15 @@ export function StudentSidebar() {
     <div className="flex flex-col h-full bg-white dark:bg-[#18181B] border-r border-[#E5E7EB] dark:border-[#27272A]">
       {/* 72px Top Header */}
       <div className="flex items-center px-6 h-[72px] border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
-        <SensilearnLogo
-          size="md"
-          subtitle="Student Portal"
-          theme="auto"
-          href="/student/dashboard"
-          priority
-        />
+        <div onClick={() => setMobileOpen(false)}>
+          <SensilearnLogo
+            size="md"
+            subtitle="Student Portal"
+            theme="auto"
+            href="/student/dashboard"
+            priority
+          />
+        </div>
       </div>
 
       {/* Navigation list */}
@@ -56,6 +62,7 @@ export function StudentSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3.5 h-11 rounded-lg text-sm font-medium transition-colors relative",
                 isActive

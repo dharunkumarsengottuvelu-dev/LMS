@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Lock } from "lucide-react";
+import { Globe, Lock, Code2, Database, X } from "lucide-react";
 import {
   getTemplateConfig,
   ModuleTemplateConfig,
@@ -28,6 +28,7 @@ export interface BulkUploadProps {
   moduleTitle?: string;
   targetSection?: string | null;
   onImport: (importedItems: any[]) => void;
+  onSwitchToSql?: () => void;
 }
 
 interface RowValidationError {
@@ -61,6 +62,7 @@ export function BulkUploadComponent({
   moduleTitle,
   targetSection,
   onImport,
+  onSwitchToSql,
 }: BulkUploadProps) {
   const { toast } = useToast();
   const [currentModuleType, setCurrentModuleType] = useState(moduleType);
@@ -890,11 +892,11 @@ export function BulkUploadComponent({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
+                <div className="grid grid-cols-3 sm:flex items-center gap-1 sm:gap-1.5 p-1 bg-white dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 w-full sm:w-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setCurrentModuleType(isAssessment ? "assessment_coding" : "coding_problem")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate ${
                       normalizedMode === "coding"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
@@ -905,24 +907,24 @@ export function BulkUploadComponent({
                   <button
                     type="button"
                     onClick={() => setCurrentModuleType(isAssessment ? "assessment_mcq" : "quiz")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate ${
                       normalizedMode === "mcq"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
-                    MCQ &amp; Multi-Select
+                    MCQ &amp; Multi
                   </button>
                   <button
                     type="button"
                     onClick={() => setCurrentModuleType(isAssessment ? "assessment_questions" : "mixed_questions")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold rounded-lg transition-all cursor-pointer text-center truncate ${
                       normalizedMode === "mixed"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
-                    Mixed (MCQ + Code)
+                    Mixed (Both)
                   </button>
                 </div>
               </div>
@@ -939,26 +941,27 @@ export function BulkUploadComponent({
                   ({activeColumns.length} of {config.columns.length} columns active for export)
                 </p>
               </div>
-              <div className="flex items-center gap-2.5 shrink-0">
+              <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => handleDownloadTemplate("csv")}
-                  className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-300 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                  className="h-9 px-3 sm:px-4 text-xs font-semibold rounded-xl border-slate-300 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 w-full sm:w-auto cursor-pointer"
                 >
                   Download CSV
                 </Button>
                 <Button
                   type="button"
                   onClick={() => handleDownloadTemplate("xlsx")}
-                  className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl"
+                  className="h-9 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl w-full sm:w-auto cursor-pointer truncate shadow-xs"
                 >
-                  Download Excel ({activeColumns.length} Columns)
+                  <span className="sm:hidden">Download Excel</span>
+                  <span className="hidden sm:inline">Download Excel ({activeColumns.length} Cols)</span>
                 </Button>
               </div>
             </div>
 
-            {/* CODING PROBLEM LANGUAGE SCOPE SELECTOR (MATCHING IMAGE 2) */}
+            {/* CODING PROBLEM LANGUAGE SCOPE SELECTOR */}
             {isCodingModule && (
               <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -971,56 +974,56 @@ export function BulkUploadComponent({
                     </p>
                   </div>
 
-                  {/* 3-Pill Toggle matching Image 2 */}
-                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start sm:self-auto shrink-0 shadow-2xs">
+                  {/* 3-Pill Toggle */}
+                  <div className="grid grid-cols-3 sm:flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-full sm:w-auto shrink-0 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setCodingLanguageMode("all")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                         codingLanguageMode === "all"
                           ? "bg-white dark:bg-zinc-950 text-[#2563EB] shadow-xs"
                           : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
-                      <Globe className="h-3.5 w-3.5" />
-                      <span>All Languages</span>
+                      <Globe className="h-3.5 w-3.5 shrink-0 hidden sm:inline-block" />
+                      <span className="truncate">All Languages</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setCodingLanguageMode("multi")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                         codingLanguageMode === "multi"
                           ? "bg-white dark:bg-zinc-950 text-[#2563EB] shadow-xs"
                           : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
-                      <span>Multi Language</span>
+                      <span className="truncate">Multi Language</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setCodingLanguageMode("single")}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                         codingLanguageMode === "single"
                           ? "bg-white dark:bg-zinc-950 text-[#2563EB] shadow-xs"
                           : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
-                      <Lock className="h-3.5 w-3.5" />
-                      <span>Single Language</span>
+                      <Lock className="h-3.5 w-3.5 shrink-0 hidden sm:inline-block" />
+                      <span className="truncate">Single Language</span>
                     </button>
                   </div>
                 </div>
 
                 {/* All Languages Mode Sub-Panel */}
                 {codingLanguageMode === "all" && (
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="text-slate-700 dark:text-zinc-300 font-medium">
-                        <strong>All Languages Mode:</strong> All 17 platform compilers enabled. Problem statements and test cases are open to open-ended submissions in Python, Java, C++, C, JavaScript, TypeScript, C#, Go, Rust, and more.
+                  <div className="p-3 sm:p-3.5 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-start sm:items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1 sm:mt-0" />
+                      <span className="text-slate-700 dark:text-zinc-300 font-medium leading-relaxed">
+                        <strong>All Languages Mode:</strong> All 17 platform compilers enabled. Problem statements and test cases accept submissions in Python, Java, C++, C, JavaScript, TypeScript, C#, Go, Rust, and more.
                       </span>
                     </div>
-                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900 shrink-0 ml-3">
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-900 shrink-0 self-start sm:self-auto">
                       17 Compilers
                     </span>
                   </div>
@@ -1178,7 +1181,7 @@ export function BulkUploadComponent({
                       type="button"
                       onClick={() => toggleColumn(col.key)}
                       disabled={col.required}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all max-w-full ${
                         col.required
                           ? "bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-slate-100 cursor-default"
                           : isIncluded
@@ -1186,17 +1189,17 @@ export function BulkUploadComponent({
                           : "bg-slate-50/50 dark:bg-zinc-900/30 border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 hover:border-blue-400 hover:text-blue-600 cursor-pointer"
                       }`}
                     >
-                      <span>{col.label}</span>
+                      <span className="truncate">{col.label}</span>
                       {col.required ? (
-                        <span className="text-[9px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded shrink-0">
                           Required
                         </span>
                       ) : isIncluded ? (
-                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded shrink-0">
                           Active
                         </span>
                       ) : (
-                        <span className="text-[9px] font-bold text-slate-500 bg-slate-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-bold text-slate-500 bg-slate-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">
                           Excluded
                         </span>
                       )}
@@ -1216,7 +1219,7 @@ export function BulkUploadComponent({
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-blue-400/50 hover:border-blue-600 bg-blue-50/30 dark:bg-blue-950/10 hover:bg-blue-50/60 rounded-2xl p-8 sm:p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all space-y-3"
+              className="border-2 border-dashed border-blue-400/50 hover:border-blue-600 bg-blue-50/30 dark:bg-blue-950/10 hover:bg-blue-50/60 rounded-2xl p-5 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all space-y-3"
             >
               <input
                 ref={fileInputRef}
@@ -1621,7 +1624,7 @@ export function BulkUploadComponent({
             type="button"
             variant="outline"
             onClick={handleModalClose}
-            className="h-10 text-xs font-semibold rounded-xl"
+            className="w-full sm:w-auto h-10 text-xs font-semibold rounded-xl cursor-pointer"
           >
             Cancel
           </Button>
@@ -1633,66 +1636,113 @@ export function BulkUploadComponent({
   // ─── 1. INLINE CARD MODE ───────────────────────────────────────────────────
   if (inline) {
     return (
-      <Card id="bulk-upload-card-section" className="bg-white dark:bg-[#18181B] border-2 border-blue-600 rounded-2xl shadow-md space-y-6 p-6 sm:p-7 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded border border-blue-200 dark:border-blue-900 uppercase">
-                Bulk Import Engine
-              </span>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
-                {moduleTitle ? `Bulk Upload — ${moduleTitle}` : `Bulk Upload — ${config.displayName}`}
-              </h3>
+      <Card id="bulk-upload-card-section" className="bg-white dark:bg-[#18181B] border-2 border-blue-600 rounded-2xl shadow-md space-y-5 p-4 sm:p-7 w-full overflow-hidden">
+        {/* Header: Responsive stacking */}
+        <div className="pb-4 border-b border-slate-200 dark:border-zinc-800 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] sm:text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 sm:px-2.5 py-0.5 rounded border border-blue-200 dark:border-blue-900 uppercase shrink-0">
+                  Bulk Import Engine
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
+                  {moduleTitle ? `Bulk Upload — ${moduleTitle}` : `Bulk Upload — ${config.displayName}`}
+                </h3>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">
+                Target Module: <span className="font-semibold text-slate-900 dark:text-slate-100">{config.displayName}</span>
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-1 truncate">
-              Target Module: <span className="font-semibold text-slate-900 dark:text-slate-100">{config.displayName}</span>
-            </p>
+
+            <div className="hidden sm:flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep("upload")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
+                  }`}
+                >
+                  1. Upload & Validate
+                </button>
+                <span className="text-slate-300">/</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (parsedRows.length > 0) {
+                      setCurrentStep("preview");
+                    } else {
+                      toast({
+                        title: "Upload Required",
+                        description: "Please upload a spreadsheet first to preview records.",
+                      });
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    currentStep === "preview"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : parsedRows.length > 0
+                      ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      : "text-slate-400"
+                  }`}
+                >
+                  2. Preview & Import {parsedRows.length > 0 && `(${parsedRows.length})`}
+                </button>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleModalClose}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 cursor-pointer"
+              >
+                Cancel
+              </Button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleModalClose}
+              className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setCurrentStep("upload")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
-                }`}
-              >
-                1. Upload & Validate
-              </button>
-              <span className="text-slate-300">/</span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (parsedRows.length > 0) {
-                    setCurrentStep("preview");
-                  } else {
-                    toast({
-                      title: "Upload Required",
-                      description: "Please upload a spreadsheet first to preview records.",
-                    });
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentStep === "preview"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : parsedRows.length > 0
-                    ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                    : "text-slate-400"
-                }`}
-              >
-                2. Preview & Import {parsedRows.length > 0 && `(${parsedRows.length})`}
-              </button>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleModalClose}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
+          {/* Mobile Stepper Row */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl sm:hidden text-center">
+            <button
+              type="button"
+              onClick={() => setCurrentStep("upload")}
+              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
+                currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-700 dark:text-zinc-400"
+              }`}
             >
-              Cancel
-            </Button>
+              1. Upload & Validate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (parsedRows.length > 0) {
+                  setCurrentStep("preview");
+                } else {
+                  toast({
+                    title: "Upload Required",
+                    description: "Please upload a spreadsheet first to preview records.",
+                  });
+                }
+              }}
+              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
+                currentStep === "preview"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : parsedRows.length > 0
+                  ? "text-blue-600 dark:text-blue-400 font-extrabold"
+                  : "text-slate-400"
+              }`}
+            >
+              2. Preview {parsedRows.length > 0 ? `(${parsedRows.length})` : "& Import"}
+            </button>
           </div>
         </div>
 
@@ -1711,76 +1761,161 @@ export function BulkUploadComponent({
       onClick={(e) => {
         if (e.target === e.currentTarget) handleModalClose();
       }}
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in-0 duration-200"
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-6 overflow-hidden animate-in fade-in-0 duration-200"
     >
-      <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl h-[88vh] max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-50/90 dark:bg-zinc-900/80 flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-0.5 rounded border border-blue-200 dark:border-blue-900 uppercase">
-                Bulk Import
-              </span>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
-                {moduleTitle ? `Bulk Upload — ${moduleTitle}` : `Bulk Upload — ${config.displayName}`}
-              </h3>
+      <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl h-[92vh] sm:h-[88vh] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Bulk Upload Type Switcher & Close Button */}
+        {onSwitchToSql && (
+          <div className="px-3.5 sm:px-6 py-2.5 bg-slate-50/90 dark:bg-[#141416] border-b border-slate-200 dark:border-[#27272A] flex items-center justify-between gap-3 shrink-0">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-200/70 dark:bg-zinc-800 rounded-xl min-w-0 max-w-[calc(100%-44px)] sm:max-w-none">
+              <button
+                type="button"
+                className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-xs whitespace-nowrap min-w-0"
+              >
+                <Code2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="hidden sm:inline">Programming Questions</span>
+                <span className="sm:hidden">Programming</span>
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchToSql}
+                className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer whitespace-nowrap min-w-0"
+              >
+                <Database className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>SQL Questions</span>
+              </button>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5 truncate">
-              Target: <span className="font-semibold text-slate-900 dark:text-slate-100">{config.displayName}</span>
-            </p>
+
+            <button
+              type="button"
+              onClick={handleModalClose}
+              className="sm:hidden h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Modal Header: Perfectly separated rows on mobile to prevent overlapping */}
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-50/90 dark:bg-zinc-900/80 space-y-3">
+          {/* Top Row: Title, Target Badge, and Close Button */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] sm:text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 sm:px-2.5 py-0.5 rounded border border-blue-200 dark:border-blue-900 uppercase shrink-0">
+                  Bulk Import
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
+                  {moduleTitle ? `Bulk Upload — ${moduleTitle}` : `Bulk Upload — ${config.displayName}`}
+                </h3>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">
+                Target: <span className="font-semibold text-slate-900 dark:text-slate-100">{config.displayName}</span>
+              </p>
+            </div>
+
+            {/* Desktop Stepper & Close Button */}
+            <div className="hidden sm:flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep("upload")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
+                  }`}
+                >
+                  1. Upload & Validate
+                </button>
+                <span className="text-slate-300">/</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (parsedRows.length > 0) {
+                      setCurrentStep("preview");
+                    } else {
+                      toast({
+                        title: "Upload Required",
+                        description: "Please upload a spreadsheet first to preview records.",
+                      });
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    currentStep === "preview"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : parsedRows.length > 0
+                      ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      : "text-slate-400"
+                  }`}
+                >
+                  2. Preview & Import {parsedRows.length > 0 && `(${parsedRows.length})`}
+                </button>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleModalClose}
+                className="h-8 px-3 text-xs font-semibold rounded-lg text-slate-600 cursor-pointer"
+              >
+                Close
+              </Button>
+            </div>
+
+            {/* Mobile Close Button (Always accessible when top switcher bar is absent) */}
+            {!onSwitchToSql && (
+              <button
+                type="button"
+                onClick={handleModalClose}
+                className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="flex items-center gap-1 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setCurrentStep("upload")}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
-                }`}
-              >
-                1. Upload & Validate
-              </button>
-              <span className="text-slate-300">/</span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (parsedRows.length > 0) {
-                    setCurrentStep("preview");
-                  } else {
-                    toast({
-                      title: "Upload Required",
-                      description: "Please upload a spreadsheet first to preview records.",
-                    });
-                  }
-                }}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentStep === "preview"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : parsedRows.length > 0
-                    ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                    : "text-slate-400"
-                }`}
-              >
-                2. Preview & Import {parsedRows.length > 0 && `(${parsedRows.length})`}
-              </button>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleModalClose}
-              className="h-8 px-3 text-xs font-semibold rounded-lg text-slate-600"
+          {/* Mobile Stepper Row (Takes full width, perfectly responsive 2-column segmented pill) */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl sm:hidden text-center">
+            <button
+              type="button"
+              onClick={() => setCurrentStep("upload")}
+              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
+                currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-700 dark:text-zinc-400"
+              }`}
             >
-              Close
-            </Button>
+              1. Upload & Validate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (parsedRows.length > 0) {
+                  setCurrentStep("preview");
+                } else {
+                  toast({
+                    title: "Upload Required",
+                    description: "Please upload a spreadsheet first to preview records.",
+                  });
+                }
+              }}
+              className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
+                currentStep === "preview"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : parsedRows.length > 0
+                  ? "text-blue-600 dark:text-blue-400 font-extrabold"
+                  : "text-slate-400"
+              }`}
+            >
+              2. Preview {parsedRows.length > 0 ? `(${parsedRows.length})` : "& Import"}
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 pb-12 sm:pb-8 space-y-6">
           {contentBody}
         </div>
 
-        <div className="px-5 py-3.5 border-t border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-50/90 dark:bg-zinc-900/80">
+        <div className="px-4 sm:px-6 py-3.5 border-t border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-50/90 dark:bg-zinc-900/80">
           {footerActions}
         </div>
       </div>

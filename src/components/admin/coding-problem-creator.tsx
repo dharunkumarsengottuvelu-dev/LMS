@@ -49,6 +49,7 @@ import {
   Maximize2,
   ShieldAlert,
   ShieldCheck,
+  Database,
 } from "lucide-react";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -205,6 +206,7 @@ export interface CodingProblemCreatorProps {
   onSave?: (problem: any) => void;
   onSaveAndNext?: (problem: any) => void;
   onChange?: (data: any) => void;
+  onChangeQuestionType?: (type: "programming" | "sql") => void;
   hideHeader?: boolean;
   inline?: boolean;
 }
@@ -228,6 +230,7 @@ export function CodingProblemCreator({
   onSave,
   onSaveAndNext,
   onChange,
+  onChangeQuestionType,
 }: CodingProblemCreatorProps) {
   const existing = useMemo(() => {
     return initialProblem || {};
@@ -1394,7 +1397,19 @@ export function CodingProblemCreator({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {onChangeQuestionType && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onChangeQuestionType("sql")}
+              className="h-[40px] px-3.5 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer gap-1.5"
+            >
+              <Database className="h-4 w-4 text-emerald-600" />
+              <span>Switch to SQL Question</span>
+            </Button>
+          )}
           {existing.id ? (
             <Button
               type="button"
@@ -2262,28 +2277,38 @@ export function CodingProblemCreator({
                   : "bg-emerald-50/30 border-emerald-200/70"
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-slate-200/80">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Input
                     value={tc.name ?? ""}
                     placeholder={`Test Case ${idx + 1}`}
                     onChange={(e) => handleUpdateTestCase(idx, "name", e.target.value)}
-                    className="h-8 w-44 text-xs font-bold bg-white border-slate-200 rounded-lg"
+                    className="h-8 w-full sm:w-44 min-w-0 text-xs font-bold bg-white border-slate-200 rounded-lg shrink-1"
                   />
                   <button
                     type="button"
                     onClick={() => handleUpdateTestCase(idx, "is_hidden", !tc.is_hidden)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                       tc.is_hidden
                         ? "bg-slate-200 text-slate-700 hover:bg-slate-300"
                         : "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                     }`}
                   >
-                    {tc.is_hidden ? "Hidden (Submit Evaluation Only)" : "Public (Student Visible)"}
+                    {tc.is_hidden ? (
+                      <>
+                        <span className="hidden sm:inline">Hidden (Submit Evaluation Only)</span>
+                        <span className="sm:hidden">Hidden Test</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">Public (Student Visible)</span>
+                        <span className="sm:hidden">Public Sample</span>
+                      </>
+                    )}
                   </button>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                   <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
                     <span>Weight:</span>
                     <Input

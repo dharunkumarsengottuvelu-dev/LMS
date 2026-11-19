@@ -47,9 +47,29 @@ export function GlobalErrorListener() {
       }
     };
 
-    // Handle global unhandled promise rejections (e.g., Monaco script/worker rejection)
+    // Handle global unhandled promise rejections (e.g., Monaco script/worker rejection, cancellation)
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      const reasonStr = String(reason?.name || reason?.message || reason || "");
+
+      // 1. Monaco & fetch cancellation signals (e.g. Canceled: Canceled / AbortError)
+      if (
+        reasonStr.includes("Canceled") ||
+        reasonStr.includes("cancelled") ||
+        reasonStr.includes("AbortError") ||
+        reason?.name === "Canceled" ||
+        reason?.message === "Canceled"
+      ) {
+        if (typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        if ("stopImmediatePropagation" in event && typeof (event as any).stopImmediatePropagation === "function") {
+          (event as any).stopImmediatePropagation();
+        }
+        return;
+      }
+
+      // 2. Event-type rejections that produce Next.js "Runtime Error: [object Event]"
       const isEventReason =
         reason instanceof Event ||
         (reason && typeof reason === "object" && ("target" in reason || "bubbles" in reason) && !("message" in reason)) ||
@@ -69,10 +89,31 @@ export function GlobalErrorListener() {
       }
     };
 
+    // 3. Intercept console.error to silence benign Monaco cancellation & localhost OAuth origin warnings from Turbopack
+    const originalConsoleError = console.error;
+    console.error = (...args: any[]) => {
+      const firstArg = String(args[0] || "");
+      const allArgs = args
+        .map((a) => (typeof a === "object" && a !== null ? (a.message || a.name || "") : String(a || "")))
+        .join(" ");
+
+      if (
+        allArgs.includes("Canceled: Canceled") ||
+        (firstArg.includes("[  ERR") && allArgs.includes("Canceled")) ||
+        allArgs.includes("ERR Canceled") ||
+        allArgs.includes("The given origin is not allowed for the given client ID") ||
+        allArgs.includes("FedCM was disabled")
+      ) {
+        return;
+      }
+      originalConsoleError.apply(console, args);
+    };
+
     window.addEventListener("error", handleGlobalWindowError, true);
     window.addEventListener("unhandledrejection", handleUnhandledRejection, true);
 
     return () => {
+      console.error = originalConsoleError;
       window.removeEventListener("error", handleGlobalWindowError, true);
       window.removeEventListener("unhandledrejection", handleUnhandledRejection, true);
     };

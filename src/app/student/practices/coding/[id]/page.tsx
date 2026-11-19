@@ -35,7 +35,11 @@ import {
   LayoutGrid,
   PanelRightClose,
   PanelRightOpen,
+  Database,
+  Table as TableIcon,
 } from "lucide-react";
+import { SqlResultGrid } from "@/components/coding/sql-result-grid";
+import { SqlTableExplorer } from "@/components/coding/sql-table-explorer";
 import { Loading } from "@/components/ui/loading";
 import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 import { Button } from "@/components/ui/button";
@@ -359,8 +363,9 @@ export default function StudentPracticeCodingRunnerPage() {
   }, [currentProblem?.title, moduleTitle, trackTitle]);
 
   // Tabs
-  const [leftTab, setLeftTab] = useState<"description" | "solutions" | "discuss" | "submissions">("description");
+  const [leftTab, setLeftTab] = useState<"description" | "schema" | "solutions" | "discuss" | "submissions">("description");
   const [bottomTab, setBottomTab] = useState<"testcase" | "testresult" | "console">("testcase");
+  const [selectedSqlEngine, setSelectedSqlEngine] = useState<string>("mysql");
 
   // All student submissions for review & persistence
   const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
@@ -1084,6 +1089,18 @@ export default function StudentPracticeCodingRunnerPage() {
     return SUPPORTED_LANGUAGES;
   }, [allowedLanguages]);
 
+  const isSqlProblem = useMemo(() => {
+    if (!currentProblem) return selectedLanguage === "sql";
+    return (
+      selectedLanguage === "sql" ||
+      currentProblem.category === "Databases" ||
+      (currentProblem as any).type === "sql" ||
+      (currentProblem as any).question_type === "sql" ||
+      Boolean((currentProblem as any).sql_engine) ||
+      Boolean((currentProblem as any).schema_sql)
+    );
+  }, [currentProblem, selectedLanguage]);
+
   const currentSubmissions = useMemo(() => {
     if (!currentProblem) return [];
     return allSubmissions.filter((s: any) =>
@@ -1111,6 +1128,11 @@ export default function StudentPracticeCodingRunnerPage() {
     let initialLang: CodingLanguage = (normDef && availableLanguages.some((l) => normalizeLanguageId(l.id) === normDef)
       ? (availableLanguages.find((l) => normalizeLanguageId(l.id) === normDef)?.id || availableLanguages[0]?.id || "c")
       : availableLanguages[0]?.id || (normDef as CodingLanguage) || "c") as CodingLanguage;
+
+    if (isSqlProblem) {
+      initialLang = "sql";
+      setSelectedSqlEngine((currentProblem as any)?.sql_engine || "mysql");
+    }
 
     setSelectedLanguage(initialLang);
 
@@ -1311,10 +1333,14 @@ export default function StudentPracticeCodingRunnerPage() {
         signal: controller.signal,
         body: JSON.stringify({
           problem_id: currentProblem.id,
-          language: selectedLanguage,
+          language: isSqlProblem ? "sql" : selectedLanguage,
           code,
           test_cases: sampleCases,
           include_hidden: false, // NEVER run hidden tests on Run
+          sql_engine: isSqlProblem ? ((currentProblem as any).sql_engine || selectedSqlEngine) : undefined,
+          schema_sql: currentProblem.schema_sql || undefined,
+          seed_sql: currentProblem.seed_sql || undefined,
+          comparison_mode: currentProblem.comparison_mode || undefined,
         }),
       });
 
@@ -1424,6 +1450,29 @@ export default function StudentPracticeCodingRunnerPage() {
     }
 
     try {
+      if (isSqlProblem) {
+        const queryToRun = customInputText.trim() || code;
+        const res = await fetch("/api/sql/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: queryToRun,
+            engine: (currentProblem as any).sql_engine || selectedSqlEngine || "sqlite",
+            schemaSql: currentProblem.schema_sql || "",
+            seedSql: currentProblem.seed_sql || "",
+            timeoutMs: 8000,
+          }),
+        });
+        const sqlRes = await res.json();
+        setCustomRunResult({
+          actual_output: sqlRes.rows ? JSON.stringify(sqlRes.rows) : "",
+          error: sqlRes.error || null,
+          time_seconds: (sqlRes.executionTimeMs || 20) / 1000,
+        });
+        setIsRunningCustomInput(false);
+        return;
+      }
+
       const res = await fetch("/api/code/run-testcases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1512,12 +1561,16 @@ export default function StudentPracticeCodingRunnerPage() {
         body: JSON.stringify({
           problem_id: currentProblem.id,
           problem_title: currentProblem.title,
-          language: selectedLanguage,
+          language: isSqlProblem ? "sql" : selectedLanguage,
           code,
           test_cases: submitCases,
           context: "practice",
           track_id: trackId,
           module_id: moduleId,
+          sql_engine: isSqlProblem ? ((currentProblem as any).sql_engine || selectedSqlEngine) : undefined,
+          schema_sql: currentProblem.schema_sql || undefined,
+          seed_sql: currentProblem.seed_sql || undefined,
+          comparison_mode: currentProblem.comparison_mode || undefined,
         }),
       });
 
@@ -2854,6 +2907,21 @@ export default function StudentPracticeCodingRunnerPage() {
                 >
                   Description
                 </button>
+                {isSqlProblem && (
+                  <button
+                    type="button"
+                    onClick={() => setLeftTab("schema")}
+                    className={cn(
+                      "h-full text-xs font-bold transition-all relative cursor-pointer flex items-center gap-1.5",
+                      leftTab === "schema"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                    )}
+                  >
+                    <Database className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Tables & Schema</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setLeftTab("solutions")}
@@ -2911,6 +2979,19 @@ export default function StudentPracticeCodingRunnerPage() {
 
           {/* Panel Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-slate-800 text-xs sm:text-sm select-text">
+            {leftTab === "schema" && isSqlProblem && (
+              <SqlTableExplorer
+                tables={(currentProblem as any).rawTables || (currentProblem as any).starter_code?.tables || []}
+                schemaSql={currentProblem.schema_sql || ""}
+                seedSql={currentProblem.seed_sql || ""}
+                sqlEngine={(currentProblem as any).sql_engine || selectedSqlEngine}
+                onInsertSnippet={(snippet) => {
+                  setCode((prev) => `${prev.trim()}\n\n${snippet}`);
+                  toast({ title: "Query Inserted", description: snippet.trim() });
+                }}
+              />
+            )}
+
             {leftTab === "description" && (
               <>
                 {/* Title & Stats */}
@@ -2939,6 +3020,27 @@ export default function StudentPracticeCodingRunnerPage() {
                     </span>
                   </div>
                 </div>
+
+                {/* SQL Engine Info Banner */}
+                {isSqlProblem && (
+                  <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Database className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-bold text-blue-900">
+                        Target Engine: {((currentProblem as any).sql_engine || selectedSqlEngine).toUpperCase()}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLeftTab("schema")}
+                      className="h-6 text-[11px] font-bold text-blue-600 border-blue-200 hover:bg-blue-100/60"
+                    >
+                      Explore Tables & Schema →
+                    </Button>
+                  </div>
+                )}
 
                 {/* Problem Statement */}
                 <div className="space-y-1.5">
@@ -3330,11 +3432,18 @@ export default function StudentPracticeCodingRunnerPage() {
                     </Button>
                   </>
                 )}
-                <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
-                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold uppercase">
-                    {selectedLanguage}
-                  </span>
-                </div>
+                {isSqlProblem ? (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-mono font-bold">
+                    <Database className="w-3.5 h-3.5 text-blue-600" />
+                    <span>{((currentProblem as any).sql_engine || selectedSqlEngine || "MySQL").toUpperCase()}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold uppercase">
+                      {selectedLanguage}
+                    </span>
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -3625,21 +3734,30 @@ export default function StudentPracticeCodingRunnerPage() {
                           Sample Case {idx + 1}:
                         </span>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1 min-w-0">
-                            <span className="text-[11px] font-semibold text-slate-600">Input (stdin)</span>
-                            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap break-all">
-                              {tc.input && tc.input.trim() ? tc.input : "No input"}
-                            </div>
+                        {isSqlProblem ? (
+                          <div className="space-y-2">
+                            <SqlResultGrid
+                              data={tc.expected_output}
+                              title={`Expected Query Output (Case ${idx + 1})`}
+                            />
                           </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1 min-w-0">
+                              <span className="text-[11px] font-semibold text-slate-600">Input (stdin)</span>
+                              <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap break-all">
+                                {tc.input && tc.input.trim() ? tc.input : "No input"}
+                              </div>
+                            </div>
 
-                          <div className="space-y-1 min-w-0">
-                            <span className="text-[11px] font-semibold text-slate-600">Expected Output</span>
-                            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap break-all">
-                              {tc.expected_output && tc.expected_output.trim() ? tc.expected_output : "(No output)"}
+                            <div className="space-y-1 min-w-0">
+                              <span className="text-[11px] font-semibold text-slate-600">Expected Output</span>
+                              <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap break-all">
+                                {tc.expected_output && tc.expected_output.trim() ? tc.expected_output : "(No output)"}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                     {/* Hidden Test Cases indicator (Read-Only anti-cheat info) */}
@@ -3688,15 +3806,24 @@ export default function StudentPracticeCodingRunnerPage() {
                           Runtime: {Math.round((customRunResult.time_seconds || 0.02) * 1000)}ms
                         </span>
                       </div>
-                      <div>
-                        <span className="text-[11px] font-bold text-slate-600 block mb-1">Your Output:</span>
-                        <pre className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
-                          {customRunResult.actual_output || "(Empty output)"}
-                        </pre>
-                      </div>
-                      {customRunResult.error && (
-                        <div className="p-2 bg-rose-50 text-rose-700 rounded-lg text-xs font-mono">
-                          {customRunResult.error}
+                      {isSqlProblem ? (
+                        <SqlResultGrid
+                          data={customRunResult.actual_output}
+                          error={customRunResult.error}
+                          executionTimeMs={(customRunResult.time_seconds || 0.02) * 1000}
+                          title="Interactive Query Result Grid"
+                        />
+                      ) : (
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-600 block mb-1">Your Output:</span>
+                          <pre className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
+                            {customRunResult.actual_output || "(Empty output)"}
+                          </pre>
+                          {customRunResult.error && (
+                            <div className="p-2 bg-rose-50 text-rose-700 rounded-lg text-xs font-mono mt-1">
+                              {customRunResult.error}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -3792,6 +3919,35 @@ export default function StudentPracticeCodingRunnerPage() {
                                   (r.actual_output.trim() === r.error.trim() ||
                                    r.actual_output.includes(r.error.trim().slice(0, 40)))
                                 );
+
+                              if (isSqlProblem) {
+                                return (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      <SqlResultGrid
+                                        data={r.expected_output}
+                                        title={`Expected Output (Case ${idx + 1})`}
+                                      />
+                                      <SqlResultGrid
+                                        data={r.actual_output}
+                                        error={!r.passed && r.error && r.error !== "Accepted" ? r.error : null}
+                                        executionTimeMs={r.time_seconds ? r.time_seconds * 1000 : undefined}
+                                        title={`Your Query Result (Case ${idx + 1})`}
+                                      />
+                                    </div>
+                                    {hasDedicatedError && (
+                                      <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
+                                          SQL Error / Diagnostic:
+                                        </span>
+                                        <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto leading-relaxed">
+                                          {r.error}
+                                        </pre>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
 
                               return (
                                 <div className="space-y-2 text-xs font-mono">

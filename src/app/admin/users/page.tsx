@@ -755,8 +755,89 @@ export default function AdminUsersPage() {
 
         <TabsContent value="student" className="mt-0 outline-none">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden rounded-2xl">
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            {/* Mobile Card List (< sm screens) */}
+            <div className="block sm:hidden divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={`m-stu-skel-${i}`} className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <Skeleton className="h-6 w-24 rounded-md" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : filtered.length === 0 ? (
+                <div className="p-8 text-center text-[#6B7280] text-sm">No students found.</div>
+              ) : (
+                filtered.map((user) => (
+                  <div key={`m-stu-${user.id}`} className="p-4 space-y-3 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A] shrink-0">
+                          <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-sm">
+                            {user.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">{user.name}</p>
+                          <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5 truncate">
+                            <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{user.email}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className={`text-[10px] font-bold capitalize shrink-0 ${
+                        user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
+                      }`}>
+                        {user.status}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        {user.batch && user.batch !== "Unassigned" ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 max-w-[140px] truncate">
+                            {user.batch}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleEditUser(user.id)}
+                            title="Click to assign batch"
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-normal border border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900/50 text-slate-500 dark:text-zinc-400 hover:text-blue-600 cursor-pointer"
+                          >
+                            Unassigned
+                          </button>
+                        )}
+                        <span className="text-[11px] font-mono text-[#6B7280]">{user.joined}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-xs cursor-pointer">
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-xs cursor-pointer">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop / Tablet Table (sm: and above) */}
+            <CardContent className="p-0 overflow-x-auto hidden sm:block">
+              <table className="w-full text-left text-sm min-w-[680px]">
                 <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
                   <tr>
                     <th className="p-4 pl-6">Student Profile</th>
@@ -784,15 +865,15 @@ export default function AdminUsersPage() {
                       <tr key={user.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
                         <td className="p-4 pl-6">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A]">
+                            <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A] shrink-0">
                               <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-sm">
                                 {user.name.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{user.name}</p>
-                              <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5">
-                                <Mail className="h-3 w-3" /> {user.email}
+                            <div className="min-w-0">
+                              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">{user.name}</p>
+                              <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5 truncate">
+                                <Mail className="h-3 w-3 shrink-0" /> {user.email}
                               </p>
                             </div>
                           </div>
@@ -814,20 +895,22 @@ export default function AdminUsersPage() {
                           )}
                         </td>
                         <td className="p-4">
-                          <Badge className={`text-[10px] font-bold capitalize ${
+                          <Badge className={`text-[10px] font-bold capitalize shrink-0 ${
                             user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
                           }`}>
                             {user.status}
                           </Badge>
                         </td>
-                        <td className="p-4 text-xs font-mono text-[#6B7280]">{user.joined}</td>
-                        <td className="p-4 pr-6 text-right space-x-2">
-                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-sm">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <td className="p-4 text-xs font-mono text-[#6B7280] whitespace-nowrap">{user.joined}</td>
+                        <td className="p-4 pr-6 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5 shrink-0">
+                            <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-xs cursor-pointer">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-xs cursor-pointer">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -840,8 +923,86 @@ export default function AdminUsersPage() {
 
         <TabsContent value="employee" className="mt-0 outline-none">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden rounded-2xl">
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            {/* Mobile Card List (< sm screens) */}
+            <div className="block sm:hidden divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={`m-emp-skel-${i}`} className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <Skeleton className="h-6 w-24 rounded-md" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : filtered.length === 0 ? (
+                <div className="p-8 text-center text-[#6B7280] text-sm">No employees found.</div>
+              ) : (
+                filtered.map((user) => (
+                  <div key={`m-emp-${user.id}`} className="p-4 space-y-3 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A] shrink-0">
+                          <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-sm">
+                            {user.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">{user.name}</p>
+                          <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5 truncate">
+                            <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{user.email}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className={`capitalize text-[10px] font-bold ${
+                          user.role === "manager" 
+                            ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/20" 
+                            : "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20"
+                        }`}>
+                          {user.role === "manager" ? <Shield className="h-3 w-3 mr-1" /> : null}
+                          {user.role}
+                        </Badge>
+                        <Badge className={`text-[10px] font-bold capitalize shrink-0 ${
+                          user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
+                        }`}>
+                          {user.status}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs">
+                      <span className="text-xs font-semibold text-[#4B5563] dark:text-[#D4D4D8] flex items-center gap-1.5 truncate">
+                        <Building2 className="h-3.5 w-3.5 text-[#9CA3AF] shrink-0" />
+                        <span className="truncate">{user.department}</span>
+                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-xs cursor-pointer">
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-xs cursor-pointer">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop / Tablet Table (sm: and above) */}
+            <CardContent className="p-0 overflow-x-auto hidden sm:block">
+              <table className="w-full text-left text-sm min-w-[650px]">
                 <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
                   <tr>
                     <th className="p-4 pl-6">Employee Profile</th>
@@ -869,22 +1030,22 @@ export default function AdminUsersPage() {
                       <tr key={user.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
                         <td className="p-4 pl-6">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A]">
+                            <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A] shrink-0">
                               <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-sm">
                                 {user.name.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{user.name}</p>
-                              <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5">
-                                <Mail className="h-3 w-3" /> {user.email}
+                              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">{user.name}</p>
+                              <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5 truncate">
+                                <Mail className="h-3 w-3 shrink-0" /> {user.email}
                               </p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
                           <span className="text-xs font-semibold text-[#4B5563] dark:text-[#D4D4D8] flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-[#9CA3AF]" />
+                            <Building2 className="h-3.5 w-3.5 text-[#9CA3AF] shrink-0" />
                             {user.department}
                           </span>
                         </td>
@@ -899,19 +1060,21 @@ export default function AdminUsersPage() {
                           </Badge>
                         </td>
                         <td className="p-4">
-                          <Badge className={`text-[10px] font-bold capitalize ${
+                          <Badge className={`text-[10px] font-bold capitalize shrink-0 ${
                             user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
                           }`}>
                             {user.status}
                           </Badge>
                         </td>
-                        <td className="p-4 pr-6 text-right space-x-2">
-                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-sm">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <td className="p-4 pr-6 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5 shrink-0">
+                            <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-xs cursor-pointer">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-xs cursor-pointer">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -924,8 +1087,140 @@ export default function AdminUsersPage() {
 
         <TabsContent value="institution" className="mt-0 outline-none">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden rounded-2xl">
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            {/* Mobile Card List (< sm screens) */}
+            <div className="block sm:hidden divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={`m-inst-skel-${i}`} className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <Skeleton className="h-4 w-36" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <Skeleton className="h-6 w-28 rounded-md" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-16 rounded-lg" />
+                        <Skeleton className="h-8 w-14 rounded-lg" />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : filtered.length === 0 ? (
+                <div className="p-10 text-center text-[#6B7280]">
+                  <Building2 className="h-8 w-8 mx-auto mb-2 text-[#9CA3AF]" />
+                  <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No institution accounts found.</p>
+                  <p className="text-xs text-[#6B7280] mt-1">Click &quot;Add New User&quot; and choose &quot;Partner Institution&quot; to create an institutional login.</p>
+                </div>
+              ) : (
+                filtered.map((user) => {
+                  const collegeLower = (user.college || user.name || "").trim().toLowerCase();
+                  const instBatches = allBatches.filter(
+                    (b) => (b.collegeName || "").trim().toLowerCase() === collegeLower
+                  );
+                  const count = instBatches.length;
+
+                  return (
+                    <div key={`m-inst-${user.id}`} className="p-4 space-y-3 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="h-10 w-10 rounded-xl bg-[#2563EB]/10 border border-[#2563EB]/20 flex items-center justify-center shrink-0">
+                            <Building2 className="h-5 w-5 text-[#2563EB]" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">
+                              {user.college || user.name}
+                            </p>
+                            <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5 truncate">
+                              SPOC: {user.name} ({user.email})
+                            </p>
+                          </div>
+                        </div>
+                        <Badge className={`text-[10px] font-bold capitalize shrink-0 ${
+                          user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
+                        }`}>
+                          {user.status}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-zinc-400">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {user.branch && (
+                            <Badge variant="outline" className="font-mono text-[10px] font-bold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                              {user.branch}
+                            </Badge>
+                          )}
+                          {user.phone && (
+                            <span className="flex items-center gap-1 font-mono text-[11px]">
+                              <Phone className="h-3 w-3 text-[#9CA3AF]" /> {user.phone}
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedInstForBatches(user);
+                            setBatchModalFilter("assigned");
+                            setBatchModalSearch("");
+                            setIsManageBatchesOpen(true);
+                          }}
+                          className="shrink-0"
+                        >
+                          <Badge
+                            variant="outline"
+                            className={`font-semibold text-[11px] px-2 py-0.5 cursor-pointer ${
+                              count > 0
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                                : "bg-slate-50 text-slate-500 border-slate-200 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800"
+                            }`}
+                          >
+                            <span>{count} {count === 1 ? "Batch" : "Batches"}</span>
+                          </Badge>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                        <span className="text-[11px] font-mono text-[#6B7280]">{user.joined}</span>
+
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                          <Button
+                            onClick={() => {
+                              setSelectedInstForBatches(user);
+                              setBatchModalFilter("all");
+                              setBatchModalSearch("");
+                              setIsManageBatchesOpen(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 shadow-xs cursor-pointer"
+                          >
+                            Batches
+                          </Button>
+                          <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10">
+                            <Link href="/institution/overview" target="_blank">
+                              <ExternalLink className="h-3 w-3" /> Portal
+                            </Link>
+                          </Button>
+                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-7 w-7 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-xs cursor-pointer">
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-7 w-7 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-xs cursor-pointer">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop / Tablet Table (sm: and above) */}
+            <CardContent className="p-0 overflow-x-auto hidden sm:block">
+              <table className="w-full text-left text-sm min-w-[850px]">
                 <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
                   <tr>
                     <th className="p-4 pl-6">Institution & SPOC</th>
@@ -1035,39 +1330,41 @@ export default function AdminUsersPage() {
                           )}
                         </td>
                         <td className="p-4">
-                          <Badge className={`text-[10px] font-bold capitalize ${
+                          <Badge className={`text-[10px] font-bold capitalize shrink-0 ${
                             user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
                           }`}>
                             {user.status}
                           </Badge>
                         </td>
-                        <td className="p-4 text-xs font-mono text-[#6B7280]">{user.joined}</td>
-                        <td className="p-4 pr-6 text-right space-x-2 whitespace-nowrap">
-                          <Button
-                            onClick={() => {
-                              setSelectedInstForBatches(user);
-                              setBatchModalFilter("all");
-                              setBatchModalSearch("");
-                              setIsManageBatchesOpen(true);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shadow-xs"
-                            title="Manage and assign existing batches for this institution"
-                          >
-                            Batches
-                          </Button>
-                          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10">
-                            <Link href="/institution/overview" target="_blank" title="Open Institution Portal">
-                              <ExternalLink className="h-3.5 w-3.5" /> Portal
-                            </Link>
-                          </Button>
-                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-sm" title="Edit Institution Details">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm" title="Delete Institution">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <td className="p-4 text-xs font-mono text-[#6B7280] whitespace-nowrap">{user.joined}</td>
+                        <td className="p-4 pr-6 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5 shrink-0">
+                            <Button
+                              onClick={() => {
+                                setSelectedInstForBatches(user);
+                                setBatchModalFilter("all");
+                                setBatchModalSearch("");
+                                setIsManageBatchesOpen(true);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shadow-xs cursor-pointer"
+                              title="Manage and assign existing batches for this institution"
+                            >
+                              Batches
+                            </Button>
+                            <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10">
+                              <Link href="/institution/overview" target="_blank" title="Open Institution Portal">
+                                <ExternalLink className="h-3.5 w-3.5" /> Portal
+                              </Link>
+                            </Button>
+                            <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-xs cursor-pointer" title="Edit Institution Details">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-xs cursor-pointer" title="Delete Institution">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1082,7 +1379,7 @@ export default function AdminUsersPage() {
 
       {/* Bulk Upload Modal — Fully Functional */}
       <Dialog open={isBulkUploadOpen} onOpenChange={(open) => { setIsBulkUploadOpen(open); if (!open) setBulkPreviewRows([]); }}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-5 sm:p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">Bulk Import Users</DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
@@ -1172,8 +1469,8 @@ export default function AdminUsersPage() {
             )}
           </div>
 
-          <DialogFooter className="pt-4 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setIsBulkUploadOpen(false); setBulkPreviewRows([]); }} className="h-11 px-6 rounded-xl font-bold text-xs">Cancel</Button>
+          <DialogFooter className="pt-4 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex flex-col-reverse sm:flex-row gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setIsBulkUploadOpen(false); setBulkPreviewRows([]); }} className="w-full sm:w-auto h-11 px-6 rounded-xl font-bold text-xs cursor-pointer">Cancel</Button>
             <Button
               disabled={isBulkImporting || bulkPreviewRows.filter((r: any) => r.isValid).length === 0}
               onClick={async () => {
@@ -1196,7 +1493,7 @@ export default function AdminUsersPage() {
                 await fetchUsers();
                 toast({ title: `Import Complete`, description: `${success} users created${failed > 0 ? `, ${failed} failed` : ""}.` });
               }}
-              className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]"
+              className="w-full sm:w-auto h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8] cursor-pointer"
             >
               {isBulkImporting ? "Importing..." : `Import ${bulkPreviewRows.filter((r: any) => r.isValid).length} Users`}
             </Button>
@@ -1368,9 +1665,11 @@ export default function AdminUsersPage() {
                                       {batch.batchName}
                                     </span>
                                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
-                                      <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
-                                        {batch.code}
-                                      </span>
+                                      {batch.code && !batch.code.startsWith("BAT-") && (
+                                        <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                          {batch.code}
+                                        </span>
+                                      )}
                                       {batch.course && (
                                         <>
                                           <span>·</span>
@@ -1505,9 +1804,11 @@ export default function AdminUsersPage() {
               <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
                 {viewingBatchDetail?.batchName}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 font-mono mt-0.5">
-                Code: {viewingBatchDetail?.code}
-              </DialogDescription>
+              {viewingBatchDetail?.code && !viewingBatchDetail.code.startsWith("BAT-") && (
+                <DialogDescription className="text-xs text-slate-500 font-mono mt-0.5">
+                  Code: {viewingBatchDetail.code}
+                </DialogDescription>
+              )}
             </div>
             <button
               type="button"

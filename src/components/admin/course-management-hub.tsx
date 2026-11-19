@@ -1031,11 +1031,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         />
 
         {/* STEP PROGRESS INDICATOR */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {[
-            { step: 1, title: "1. Basic Metadata", desc: "Title, category & instructor" },
-            { step: 2, title: "2. Curriculum Content", desc: "Lessons, code & assessments" },
-            { step: 3, title: "3. Review & Deploy", desc: "Verification & deployment" },
+            { step: 1, title: "Basic Metadata", desc: "Title, category & instructor" },
+            { step: 2, title: "Curriculum Content", desc: "Lessons, code & assessments" },
+            { step: 3, title: "Review & Deploy", desc: "Verification & deployment" },
           ].map((item) => {
             const isActive = wizardStep === item.step;
             const isCompleted = wizardStep > item.step;
@@ -1044,29 +1044,46 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 key={item.step}
                 type="button"
                 onClick={() => setWizardStep(item.step as 1 | 2 | 3)}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                className={`p-3 sm:p-4 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
                   isActive
-                    ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
+                    ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/20 shadow-xs ring-1 ring-blue-600/20"
                     : isCompleted
-                    ? "border-[#16A34A] bg-[#16A34A]/5"
-                    : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]"
+                    ? "border-emerald-500/50 bg-emerald-50/30 dark:bg-emerald-950/10"
+                    : "border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B] hover:border-slate-300"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs font-bold ${isActive ? "text-[#2563EB]" : isCompleted ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
-                    {item.title}
-                  </span>
-                  {isCompleted ? (
-                    <CheckCircle2 className="h-4 w-4 text-[#16A34A]" />
-                  ) : (
-                    <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                      isActive ? "bg-[#2563EB] text-white" : "bg-[#E5E7EB] dark:bg-[#27272A] text-[#6B7280]"
-                    }`}>
-                      {item.step}
-                    </span>
-                  )}
+                <div
+                  className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-2xs"
+                      : isCompleted
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
+                  }`}
+                >
+                  {item.step}
                 </div>
-                <p className="text-[11px] text-[#6B7280] mt-1">{item.desc}</p>
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`text-xs sm:text-sm font-bold truncate flex items-center gap-1.5 ${
+                      isActive
+                        ? "text-blue-600 dark:text-blue-400"
+                        : isCompleted
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : "text-slate-700 dark:text-zinc-300"
+                    }`}
+                  >
+                    <span>{item.title}</span>
+                    {isCompleted && (
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded shrink-0">
+                        Done
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 truncate">
+                    {item.desc}
+                  </p>
+                </div>
               </button>
             );
           })}
@@ -1074,7 +1091,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
         {/* STEP 1: METADATA */}
         {wizardStep === 1 && (
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 sm:p-6 md:p-8 rounded-2xl shadow-sm space-y-5 sm:space-y-6">
             <h2 className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
               Course Overview & Identity
             </h2>
@@ -1128,14 +1145,14 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
-            <div className="pt-4 flex items-center justify-end border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <div className="pt-4 flex items-center justify-end border-t border-[#E5E7EB] dark:border-[#27272A] w-full">
               <Button type="button" onClick={() => {
                 if (!fTitle) {
                   toast({ title: "Title Required", description: "Enter course title to proceed.", variant: "destructive" });
                   return;
                 }
                 setWizardStep(2);
-              }} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm">
+              }} className="w-full sm:w-auto h-11 sm:h-12 px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer">
                 Next Step: Curriculum Modules
               </Button>
             </div>
@@ -1145,8 +1162,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {/* STEP 2: CURRICULUM & CONTENT */}
         {wizardStep === 2 && (
           <div className="space-y-6">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 sm:p-6 rounded-2xl shadow-sm space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
                 <div>
                   <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
                     Step 2: Curriculum Structure
@@ -1155,9 +1172,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     Organize your course into Main Modules with nested Sub-Modules (Videos, Notes, Monaco Coding & Quizzes)
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 mr-2">
-                    <Label className="text-xs font-semibold text-[#6B7280]">Global Duration:</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full md:w-auto">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-semibold text-[#6B7280] select-none">Global Duration:</Label>
                     <Switch
                       checked={globalDurationEnabled}
                       onCheckedChange={(checked) => {
@@ -1168,7 +1185,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       }}
                     />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
                     {draftModules.length > 0 && (
                       <Button
                         type="button"
@@ -1181,7 +1198,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             expandAllModules();
                           }
                         }}
-                        className="h-9 px-3 text-xs font-semibold text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] gap-1.5"
+                        className="h-10 px-2.5 sm:px-3 text-xs font-semibold text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] gap-1.5 col-span-2 sm:col-span-1"
                         title={expandedModuleIds.length === draftModules.length ? "Collapse all main modules" : "Expand all main modules"}
                       >
                         {expandedModuleIds.length === draftModules.length ? (
@@ -1199,15 +1216,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       type="button"
                       variant="outline"
                       onClick={openBulkUploadMainModules}
-                      className="h-10 px-3.5 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-sm gap-2"
+                      className="h-10 px-2.5 sm:px-3.5 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-xs gap-1.5 justify-center truncate cursor-pointer"
                       title="Upload multiple Main Modules from Excel / CSV"
                     >
-                      <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload Main Modules
+                      <UploadCloud className="h-4 w-4 text-[#2563EB] shrink-0" />
+                      <span className="truncate">Bulk Upload</span>
                     </Button>
                     <Button
                       type="button"
                       onClick={openCreateMainModule}
-                      className="h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm"
+                      className="h-10 px-3 sm:px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs justify-center truncate cursor-pointer"
                     >
                       + Add Main Module
                     </Button>
@@ -1230,16 +1248,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               )}
 
               {draftModules.length === 0 && !isBulkUploadingMainModules && (
-                <div className="text-center py-14 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50">
+                <div className="text-center p-6 sm:py-14 sm:px-8 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50">
                   <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No main modules created yet</p>
-                  <p className="text-xs text-[#6B7280] mt-1 max-w-md mx-auto">
+                  <p className="text-xs text-[#6B7280] mt-1 max-w-md mx-auto leading-relaxed">
                     Start by creating Main Modules (e.g. &quot;Module 1: Java Basics&quot;), or use Bulk Upload to import multiple main modules at once from Excel / CSV.
                   </p>
-                  <div className="flex items-center justify-center gap-3 mt-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 mt-5 w-full max-w-md mx-auto">
                     <Button
                       type="button"
                       onClick={openCreateMainModule}
-                      className="h-9 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl"
+                      className="w-full sm:w-auto h-9 sm:h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl cursor-pointer shadow-xs justify-center"
                     >
                       + Create First Main Module
                     </Button>
@@ -1247,9 +1265,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       type="button"
                       variant="outline"
                       onClick={openBulkUploadMainModules}
-                      className="h-9 px-4 text-slate-700 dark:text-slate-200 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] font-semibold text-xs rounded-xl gap-2 shadow-sm"
+                      className="w-full sm:w-auto h-9 sm:h-10 px-4 text-slate-700 dark:text-slate-200 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] font-semibold text-xs rounded-xl gap-2 shadow-xs cursor-pointer justify-center"
                     >
-                      <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk Upload Main Modules
+                      <UploadCloud className="h-3.5 w-3.5 text-[#2563EB] shrink-0" /> Bulk Upload Main Modules
                     </Button>
                   </div>
                 </div>
@@ -1842,18 +1860,18 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2 pt-2">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => { resetSubModuleBuilder(); setShowModuleBuilder(false); }}
-                      className="h-10 text-xs font-semibold rounded-xl"
+                      className="w-full sm:w-auto h-10 text-xs font-semibold rounded-xl cursor-pointer"
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
-                      className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl"
+                      className="w-full sm:w-auto h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer"
                     >
                       {editingSubModuleId ? "Update Sub-Module" : "Save Sub-Module"}
                     </Button>
@@ -1888,19 +1906,19 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               />
             )}
 
-            <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A] w-full">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setWizardStep(1)}
-                className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]"
+                className="w-full sm:w-auto h-11 sm:h-12 px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A] cursor-pointer"
               >
                 Previous Step
               </Button>
               <Button
                 type="button"
                 onClick={() => setWizardStep(3)}
-                className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm"
+                className="w-full sm:w-auto h-11 sm:h-12 px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer"
               >
                 Next Step: Review & Deploy
               </Button>
@@ -1911,12 +1929,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {/* STEP 3: REVIEW & PUBLISH */}
         {wizardStep === 3 && (
           <div className="space-y-6">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 sm:p-6 md:p-8 rounded-2xl shadow-sm space-y-6">
               <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
                 Step 3: Verification & Deployment
               </h2>
 
-              <div className="p-6 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+              <div className="p-4 sm:p-6 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB]">
                     {fCategory || "General"}
@@ -1924,12 +1942,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <Badge className="bg-[#16A34A] text-white text-xs">{fLevel}</Badge>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">{fTitle || "Untitled Course"}</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">{fTitle || "Untitled Course"}</h3>
                   <p className="text-xs text-[#6B7280] mt-1">Instructor: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{fInstructor || "Course Instructor"}</span></p>
                   <p className="text-xs text-[#6B7280] mt-2 leading-relaxed">{fDesc || "No description provided."}</p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs">
                   <div>
                     <span className="text-[#6B7280]">Calculated Duration:</span>
                     <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{calculateModulesTotalDuration(draftModules)}</p>
@@ -1979,11 +1997,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-6 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                <Button type="button" variant="outline" onClick={() => setWizardStep(2)} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-6 border-t border-[#E5E7EB] dark:border-[#27272A] w-full">
+                <Button type="button" variant="outline" onClick={() => setWizardStep(2)} className="w-full sm:w-auto h-11 sm:h-12 px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A] cursor-pointer">
                   Previous Step
                 </Button>
-                <Button type="button" onClick={handlePublishCourse} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-md">
+                <Button type="button" onClick={handlePublishCourse} className="w-full sm:w-auto h-11 sm:h-12 px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer">
                   {editingCourseId ? "Deploy & Update Course" : "Deploy & Publish Course"}
                 </Button>
               </div>
@@ -2030,18 +2048,18 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 />
               </div>
 
-              <DialogFooter className="pt-3 gap-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <DialogFooter className="pt-3 gap-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex flex-col-reverse sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowMainModuleModal(false)}
-                  className="h-10 text-xs font-semibold rounded-xl"
+                  className="w-full sm:w-auto h-10 text-xs font-semibold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm"
+                  className="w-full sm:w-auto h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer"
                 >
                   {editingMainModuleId ? "Update Module" : "Create Module"}
                 </Button>
@@ -2305,11 +2323,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-[#F9FAFB] dark:bg-[#09090B] p-1 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shrink-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-[#F9FAFB] dark:bg-[#09090B] p-1 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl w-full sm:w-auto shrink-0">
               <button
                 type="button"
                 onClick={() => setBulkUploadScope("course_batch")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-center truncate cursor-pointer ${
                   bulkUploadScope === "course_batch"
                     ? "bg-[#2563EB] text-white shadow-xs"
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
@@ -2320,24 +2338,24 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <button
                 type="button"
                 onClick={() => setBulkUploadScope("course")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-center truncate cursor-pointer ${
                   bulkUploadScope === "course"
                     ? "bg-[#2563EB] text-white shadow-xs"
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
-                2. Sub-Modules / Lessons
+                2. Sub-Modules
               </button>
               <button
                 type="button"
                 onClick={() => setBulkUploadScope("main_module")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-center truncate cursor-pointer ${
                   bulkUploadScope === "main_module"
                     ? "bg-[#2563EB] text-white shadow-xs"
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
-                3. Main Chapters / Units
+                3. Main Chapters
               </button>
             </div>
           </div>

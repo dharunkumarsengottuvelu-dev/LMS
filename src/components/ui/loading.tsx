@@ -68,9 +68,13 @@ export function Loading({
     setMounted(true);
   }, []);
 
-  // When fullScreen is requested, render the official centered loader with white background
+  // When fullScreen is requested, render a clean non-portaled viewport container
   if (fullScreen) {
-    return <SensilearnLoader variant="fullscreen" ariaLabel={text} text={showText ? text : undefined} />;
+    return (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-white dark:bg-background">
+        <SensilearnLoader variant="inline" size={size === "xl" ? "lg" : size} ariaLabel={text} text={showText ? text : undefined} />
+      </div>
+    );
   }
 
   const config = sizeMap[size] || sizeMap.md;

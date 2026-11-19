@@ -717,6 +717,20 @@ export function CodeEditor({
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      const reasonStr = String(reason?.name || reason?.message || reason || "");
+
+      // Suppress Monaco internal cancellation rejections
+      if (
+        reasonStr.includes("Canceled") ||
+        reasonStr.includes("cancelled") ||
+        reasonStr.includes("AbortError") ||
+        reason?.name === "Canceled" ||
+        reason?.message === "Canceled"
+      ) {
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        return;
+      }
+
       const isEventReason =
         reason instanceof Event ||
         (reason && typeof reason === "object" && ("target" in reason || "type" in reason) && !("message" in reason)) ||

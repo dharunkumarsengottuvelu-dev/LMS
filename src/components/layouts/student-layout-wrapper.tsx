@@ -17,11 +17,11 @@ export function StudentLayoutWrapper({ children }: { children: React.ReactNode }
       {!isRunner && <StudentTopNav />}
       <main className={`min-h-screen min-h-[100dvh] ${!isRunner ? "pt-[72px]" : "pt-0"}`}>
         {isRunner ? (
-          <div key={pathname} className="animate-fade-up h-screen h-[100dvh]">
+          <div className="h-screen h-[100dvh]">
             {children}
           </div>
         ) : (
-          <div key={pathname} className="lms-page-container py-4 md:py-8 animate-fade-up">
+          <div className="lms-page-container py-4 md:py-8">
             {children}
           </div>
         )}

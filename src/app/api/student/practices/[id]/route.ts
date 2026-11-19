@@ -657,9 +657,26 @@ export async function GET(
 
     const totalModules = flatEnrichedModules.length;
     const completedCount = flatEnrichedModules.filter((m) => m.isCompleted).length;
-    const progressPercentage = totalModules > 0
-      ? Math.round((completedCount / totalModules) * 100)
-      : calculateTrackProgressPercentage(completedQuestionsAcrossTrack, totalQuestionsAcrossTrack);
+
+    // Calculate dynamic progress across all modules in track:
+    // Each module contributes its completion percentage (m.percentage) towards total track progress
+    const sumPercentages = flatEnrichedModules.reduce((acc, m) => acc + (m.percentage || 0), 0);
+    const avgPercent = totalModules > 0 ? sumPercentages / totalModules : 0;
+    const questionWeightedProgress = calculateTrackProgressPercentage(
+      completedQuestionsAcrossTrack,
+      totalQuestionsAcrossTrack
+    );
+
+    let progressPercentage = 0;
+    if (completedCount === totalModules && totalModules > 0) {
+      progressPercentage = 100;
+    } else if (totalModules > 0) {
+      if (completedCount > 0 || completedQuestionsAcrossTrack > 0 || sumPercentages > 0) {
+        progressPercentage = Math.min(99, Math.max(1, Math.round(avgPercent)));
+      }
+    } else if (totalQuestionsAcrossTrack > 0) {
+      progressPercentage = questionWeightedProgress;
+    }
 
     return NextResponse.json(
       {

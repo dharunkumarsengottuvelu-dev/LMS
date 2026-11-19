@@ -1,40 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { getSafeUser, getSafeSession, isProxyUser } from "@/lib/auth/safe-auth";
 import type { UserProfile } from "@/types";
-import { SensilearnLoader } from "@/components/brand/sensilearn-loader";
-
-function AuthSessionLoader({ loading }: { loading: boolean }) {
-  const [initialRestoreDone, setInitialRestoreDone] = useState(false);
-
-  useEffect(() => {
-    if (!loading) {
-      setInitialRestoreDone(true);
-    }
-  }, [loading]);
-
-  // Safety fallback: if network hangs, dismiss loader after 3.5s to prevent infinite block
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setInitialRestoreDone(true);
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (initialRestoreDone) return null;
-
-  return (
-    <SensilearnLoader
-      isLoading={loading}
-      variant="fullscreen"
-      ariaLabel="Initializing Sensilearn"
-      onFinish={() => setInitialRestoreDone(true)}
-    />
-  );
-}
 
 interface AuthContextType {
   user: User | null;
@@ -152,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function refreshProfile() {
+  const refreshProfile = useCallback(async () => {
     let activeUser = user && !isProxyUser(user) ? user : null;
     if (!activeUser) {
       const { user: authUser } = await getSafeUser(supabase);
@@ -161,22 +131,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (activeUser) {
       await fetchProfile(activeUser.id, activeUser.email);
     }
-  }
+  }, [user, supabase]);
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("lms_auth_restored", "true");
+        try {
+          localStorage.removeItem("lms_active_user");
+          localStorage.removeItem("edunexus_last_activity");
+          sessionStorage.removeItem("auth_redirect_target");
+        } catch {}
+      }
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Sign out notice:", err);
+      }
     } catch (err) {
-      console.warn("Sign out notice:", err);
+      console.warn("Sign out general notice:", err);
     } finally {
       setUser(null);
       setSession(null);
       setProfile(null);
+      setLoading(false);
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.href = "/api/auth/clear-cookies";
       }
     }
-  }
+  }, [supabase]);
 
   useEffect(() => {
     let isMounted = true;
@@ -289,11 +272,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const authValue = useMemo<AuthContextType>(
+    () => ({
+      user,
+      session,
+      profile,
+      loading,
+      signOut,
+      refreshProfile,
+    }),
+    [user, session, profile, loading, signOut, refreshProfile]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{ user, session, profile, loading, signOut, refreshProfile }}
-    >
-      <AuthSessionLoader loading={loading} />
+    <AuthContext.Provider value={authValue}>
       {children}
     </AuthContext.Provider>
   );

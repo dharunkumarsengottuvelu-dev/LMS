@@ -273,10 +273,24 @@ export async function GET(request: NextRequest) {
           };
         });
 
-      const progressPercentage = calculateTrackProgressPercentage(
-        completedQuestionsAcrossTrack,
-        totalQuestionsAcrossTrack
-      );
+      const sumPercentages = activeSubmodules
+        .flatMap((sm: any) => sm.modules || [])
+        .reduce((acc: number, m: any) => acc + (m.percentage || 0), 0);
+
+      let progressPercentage = 0;
+      if (completedModulesInTrack === totalModulesInTrack && totalModulesInTrack > 0) {
+        progressPercentage = 100;
+      } else if (totalModulesInTrack > 0) {
+        const avgPercent = sumPercentages / totalModulesInTrack;
+        if (completedModulesInTrack > 0 || completedQuestionsAcrossTrack > 0 || sumPercentages > 0) {
+          progressPercentage = Math.min(99, Math.max(1, Math.round(avgPercent)));
+        }
+      } else if (totalQuestionsAcrossTrack > 0) {
+        progressPercentage = calculateTrackProgressPercentage(
+          completedQuestionsAcrossTrack,
+          totalQuestionsAcrossTrack
+        );
+      }
 
       return {
         id: track.id,

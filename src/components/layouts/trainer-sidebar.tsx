@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,16 +22,22 @@ export function TrainerSidebar() {
   const { profile, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="flex items-center px-4 py-5 border-b border-border">
-        <SensilearnLogo
-          size="md"
-          subtitle="Trainer Panel"
-          theme="auto"
-          href="/trainer/dashboard"
-          priority
-        />
+        <div onClick={() => setMobileOpen(false)}>
+          <SensilearnLogo
+            size="md"
+            subtitle="Trainer Panel"
+            theme="auto"
+            href="/trainer/dashboard"
+            priority
+          />
+        </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {trainerNavigation.map((item) => {
@@ -44,6 +50,7 @@ export function TrainerSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 isActive

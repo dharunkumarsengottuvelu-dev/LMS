@@ -117,17 +117,17 @@ async function getStudentData() {
         .from("courses")
         .select("id, slug, title, status, assigned_batches, is_common, tags, created_at")
         .order("created_at", { ascending: false })
-        .limit(40),
+        .limit(12),
       adminClient
         .from("practice_tracks")
         .select("id, title, category, difficulty, description, thumbnail, assigned_by_name, assigned_batches, assigned_students, sub_modules, is_common, status, created_at, tags")
         .order("created_at", { ascending: false })
-        .limit(40),
+        .limit(12),
       adminClient
         .from("assessments")
         .select("id, title, description, duration_minutes, total_marks, pass_percentage, status, scheduled_at, assigned_batches, is_common, tags, created_at")
         .order("created_at", { ascending: false })
-        .limit(40),
+        .limit(12),
       adminClient
         .from("notifications")
         .select("id, title, message, type, is_read, created_at")
@@ -137,7 +137,7 @@ async function getStudentData() {
         .from("coding_problems")
         .select("id, title, slug, difficulty, tags, time_limit_ms, starter_code, created_at")
         .order("created_at", { ascending: false })
-        .limit(20),
+        .limit(6),
     ]);
 
   // Safely extract dataset with section-level error tolerance
@@ -215,6 +215,16 @@ async function getStudentData() {
         (assignedBatches.length === 0 && assignedStudents.length === 0) ||
         assignedBatches.includes("common") ||
         assignedBatches.includes("all");
+      const rawSubmodules: any[] = meta.subModules || t.sub_modules || [];
+      let totalModCount = 0;
+      rawSubmodules.forEach((sm: any) => {
+        if (Array.isArray(sm.modules) && sm.modules.length > 0) {
+          totalModCount += sm.modules.filter((m: any) => m && m.status !== "inactive").length;
+        } else if (sm && sm.status !== "inactive") {
+          totalModCount += 1;
+        }
+      });
+
       return {
         id: t.id,
         title: t.title,
@@ -225,7 +235,12 @@ async function getStudentData() {
         assigned_by_name: meta.assignedByName || t.assigned_by_name || "Admin",
         assigned_batches: assignedBatches,
         assigned_students: assignedStudents,
-        sub_modules: meta.subModules || t.sub_modules || [],
+        sub_modules: rawSubmodules,
+        submodules: rawSubmodules,
+        subModules: rawSubmodules,
+        totalModules: totalModCount || rawSubmodules.length,
+        completedModules: 0,
+        progressPercentage: 0,
         is_common: isCommon,
         status: t.status || meta.status || "published",
         created_at: t.created_at,

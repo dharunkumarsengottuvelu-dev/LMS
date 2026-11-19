@@ -191,6 +191,19 @@ export async function GET(request: NextRequest) {
         restrict_copy_paste: !!extra.restrict_copy_paste,
         restrict_screenshot: !!extra.restrict_screenshot,
         acceptance_rate: extra.acceptance_rate || undefined,
+        starter_code: extra,
+        sql_engine: extra.sql_engine,
+        schema_sql: extra.schema_sql,
+        seed_sql: extra.seed_sql,
+        tables_schema: extra.tables_schema,
+        sample_data: extra.sample_data,
+        comparison_mode: extra.comparison_mode,
+        question_mode: extra.question_mode,
+        track_id: extra.track_id,
+        submodule_id: extra.submodule_id,
+        learning_objectives: extra.learning_objectives,
+        reference_solution: extra.reference_solution,
+        explanation: extra.explanation || (sol?.overview),
         created_at: p.created_at,
         updated_at: p.updated_at,
       };
@@ -281,7 +294,9 @@ export async function POST(request: NextRequest) {
           const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
 
           const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
+          const extraStarter = typeof (problem as any).starter_code === "object" && (problem as any).starter_code !== null ? (problem as any).starter_code : {};
           const starterCodePayload = {
+            ...extraStarter,
             scope: problemScope,
             module_id: (problem as any).module_id || (problem as any).moduleId || undefined,
             assessment_id: (problem as any).assessment_id || undefined,
@@ -312,6 +327,19 @@ export async function POST(request: NextRequest) {
             test_cases: allTestCases,
             sample_test_cases: sampleTestCases,
             hidden_test_cases: hiddenTestCases,
+            // SQL specific properties
+            sql_engine: (problem as any).sql_engine || extraStarter.sql_engine || undefined,
+            schema_sql: (problem as any).schema_sql || extraStarter.schema_sql || undefined,
+            seed_sql: (problem as any).seed_sql || extraStarter.seed_sql || undefined,
+            tables_schema: (problem as any).tables_schema || extraStarter.tables_schema || undefined,
+            sample_data: (problem as any).sample_data || extraStarter.sample_data || undefined,
+            comparison_mode: (problem as any).comparison_mode || extraStarter.comparison_mode || undefined,
+            question_mode: (problem as any).question_mode || extraStarter.question_mode || undefined,
+            track_id: (problem as any).track_id || extraStarter.track_id || undefined,
+            submodule_id: (problem as any).submodule_id || extraStarter.submodule_id || undefined,
+            learning_objectives: (problem as any).learning_objectives || extraStarter.learning_objectives || undefined,
+            reference_solution: (problem as any).reference_solution || extraStarter.reference_solution || undefined,
+            explanation: (problem as any).explanation || extraStarter.explanation || undefined,
           };
 
           const solutionCodePayload = problem.solution_editorial || null;

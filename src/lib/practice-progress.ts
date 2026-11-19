@@ -206,11 +206,21 @@ export function getModuleCompletedCount(
   let resumeQuestionNumber = 1;
   let resumeQuestionLabel = module.type === "coding" ? "Problem 1" : "Question 1";
 
+  // Check explicit module completion/in-progress status from authoritative server records
+  if (module.isCompleted || module.status === "completed") {
+    isDone = true;
+    completedCount = totalQuestions;
+    inProg = false;
+  } else if (module.status === "in_progress" || module.isInProgress || Boolean(module.activeAttempt)) {
+    inProg = true;
+  }
+
   // 1. Initial count from database-supplied module object (authoritative database records)
   if (typeof module.completedQuestions === "number") {
-    completedCount = Math.min(totalQuestions, Math.max(0, module.completedQuestions));
+    completedCount = Math.min(totalQuestions, Math.max(completedCount, module.completedQuestions));
     if (completedCount >= totalQuestions && totalQuestions > 0) {
       isDone = true;
+      inProg = false;
     } else if (completedCount > 0) {
       inProg = true;
       resumeQuestionNumber = Math.min(totalQuestions, completedCount + 1);
@@ -342,11 +352,55 @@ export function getPracticeTrackProgress(
   modulesOrTrack: any[] | any,
   isMounted: boolean = true
 ): PracticeTrackProgressResult {
-  const modulesList: any[] = Array.isArray(modulesOrTrack)
-    ? modulesOrTrack
-    : modulesOrTrack?.subModules || modulesOrTrack?.sub_modules || [];
+  let rawList: any[] = [];
+  let serverTotalModules = 0;
+  let serverCompletedModules = 0;
+  let serverProgressPercentage: number | null = null;
 
-  const totalModules = modulesList.length;
+  if (Array.isArray(modulesOrTrack)) {
+    rawList = modulesOrTrack;
+  } else if (modulesOrTrack && typeof modulesOrTrack === "object") {
+    if (typeof modulesOrTrack.totalModules === "number" && modulesOrTrack.totalModules > 0) {
+      serverTotalModules = modulesOrTrack.totalModules;
+    }
+    if (typeof modulesOrTrack.completedModules === "number") {
+      serverCompletedModules = modulesOrTrack.completedModules;
+    }
+    if (typeof modulesOrTrack.progressPercentage === "number") {
+      serverProgressPercentage = modulesOrTrack.progressPercentage;
+    }
+
+    rawList =
+      modulesOrTrack.submodules ||
+      modulesOrTrack.subModules ||
+      modulesOrTrack.sub_modules ||
+      modulesOrTrack.modules ||
+      [];
+  }
+
+  // Flatten if rawList is an array of sections/submodules that contain inner modules (3-level hierarchy)
+  const hasNestedModules = rawList.some(
+    (item: any) => item && Array.isArray(item.modules) && item.modules.length > 0
+  );
+
+  const modulesList: any[] = hasNestedModules
+    ? rawList.flatMap((sm: any) => {
+        if (sm && Array.isArray(sm.modules) && sm.modules.length > 0) {
+          return sm.modules
+            .filter((m: any) => m && m.status !== "inactive")
+            .map((m: any, mIdx: number) => ({
+              ...m,
+              sectionId: sm.id,
+              sectionName: sm.name || sm.title,
+              sectionDisplayOrder: sm.display_order ?? sm.displayOrder ?? 0,
+              displayOrder: m.display_order ?? m.displayOrder ?? mIdx,
+            }));
+        }
+        return sm && sm.status !== "inactive" ? [sm] : [];
+      })
+    : rawList;
+
+  const totalModules = Math.max(modulesList.length, serverTotalModules);
 
   if (totalModules === 0) {
     return {
@@ -390,15 +444,15 @@ export function getPracticeTrackProgress(
       resumeQuestionLabel,
     } = getModuleCompletedCount(m, modTotalQuestions, isMounted);
 
-    const modPercentage = calculateModuleProgress(completedCount, modTotalQuestions);
+    const modPercentage = isDone ? 100 : calculateModuleProgress(completedCount, modTotalQuestions);
 
     totalQuestions += modTotalQuestions;
     completedQuestions += completedCount;
 
-    if (modPercentage === 100) {
+    if (modPercentage === 100 || isDone) {
       completedModules++;
     } else {
-      if (inProg) {
+      if (inProg || completedCount > 0) {
         hasActiveSession = true;
       }
       if (!nextSubModuleToContinue) {
@@ -413,13 +467,13 @@ export function getPracticeTrackProgress(
       }
     }
 
-    if (isSubmitted) {
+    if (isSubmitted || isDone) {
       hasSubmittedModule = true;
     }
 
-    const status: "not_started" | "in_progress" | "completed" = modPercentage === 100
+    const status: "not_started" | "in_progress" | "completed" = modPercentage === 100 || isDone
       ? "completed"
-      : inProg || isSubmitted
+      : inProg || isSubmitted || completedCount > 0
       ? "in_progress"
       : "not_started";
 
@@ -430,8 +484,8 @@ export function getPracticeTrackProgress(
       completedQuestions: completedCount,
       percentage: modPercentage,
       status,
-      isCompleted: modPercentage === 100,
-      isInProgress: inProg,
+      isCompleted: modPercentage === 100 || isDone,
+      isInProgress: inProg || (completedCount > 0 && !isDone),
       isSubmitted,
       rawModule: m,
       resumeQuestionNumber,
@@ -439,8 +493,30 @@ export function getPracticeTrackProgress(
     };
   });
 
-  // Calculate overall track progress using total questions across ALL modules (question-weighted)
-  const percentage = calculateTrackProgressPercentage(completedQuestions, totalQuestions);
+  if (serverCompletedModules > completedModules) {
+    completedModules = serverCompletedModules;
+  }
+
+  // Calculate dynamic progress across all modules:
+  // Each module contributes its completion percentage towards total track progress
+  const sumModulePercentages = moduleDetails.reduce((acc, m) => acc + (m.percentage || 0), 0);
+  const avgModuleProgress = totalModules > 0 ? sumModulePercentages / totalModules : 0;
+  const questionWeightedProgress = calculateTrackProgressPercentage(completedQuestions, totalQuestions);
+
+  let percentage = 0;
+  if (completedModules === totalModules && totalModules > 0) {
+    percentage = 100;
+  } else if (totalModules > 0) {
+    if (completedModules > 0 || completedQuestions > 0 || hasActiveSession || sumModulePercentages > 0) {
+      percentage = Math.min(99, Math.max(1, Math.round(avgModuleProgress)));
+    }
+  } else if (totalQuestions > 0) {
+    percentage = questionWeightedProgress;
+  }
+
+  if (serverProgressPercentage !== null && serverProgressPercentage > percentage) {
+    percentage = serverProgressPercentage;
+  }
 
   const activeModule = nextSubModuleToContinue || moduleDetails.find((m) => !m.isCompleted) || moduleDetails[0];
   const resumeQuestionLabel = percentage === 100
