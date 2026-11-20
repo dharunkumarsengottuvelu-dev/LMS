@@ -58,7 +58,7 @@ import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/coding";
 import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
 import { cn } from "@/lib/utils";
-import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases } from "@/lib/compiler/comparator";
+import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases, extractHiddenTestCases } from "@/lib/compiler/comparator";
 import { EditorialViewer } from "@/components/coding/editorial-viewer";
 
 // Lazy load Monaco Editor with branded loading
@@ -757,7 +757,7 @@ export default function ProblemSolvingWorkspace() {
   // Hidden Test Cases (Evaluated on Run & Submit)
   const hiddenTestCases = useMemo(() => {
     if (!problem) return [];
-    return (problem.test_cases || []).filter((tc) => tc.is_hidden);
+    return extractHiddenTestCases(problem);
   }, [problem]);
 
   // RUN CODE against system sample and hidden test cases
@@ -1229,34 +1229,38 @@ export default function ProblemSolvingWorkspace() {
 
   return (
     <div className="flex flex-col h-screen min-h-[100dvh] bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
-      {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN, NO GLOBAL LMS NAVBAR) ─── */}
-      {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN, NO GLOBAL LMS NAVBAR) ─── */}
-      <header className="h-14 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20 gap-2 overflow-hidden">
-        {/* Left: ← Back to Challenges / #1. Title [Difficulty] */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+      {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN MNC SUITE HEADER) ─── */}
+      <header className="h-14 bg-white border-b border-slate-200/90 px-3 sm:px-5 lg:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20 gap-3 sm:gap-4">
+        {/* Left: Sensilearn Brand / Back to Challenges / #1. Title [Difficulty] / Prev-Next */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <SensilearnLogo variant="mark" size="xs" href="/coding" className="shrink-0" />
+
           <button
             type="button"
             onClick={() => {
               router.push("/coding");
             }}
-            className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 px-1.5 sm:px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1.5 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
+            title="Back to Challenges"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span className="hidden sm:inline">Back to Challenges</span>
+            <span className="hidden sm:inline">Challenges</span>
             <span className="sm:hidden">Back</span>
           </button>
 
-          <span className="text-slate-300 font-medium">/</span>
+          <span className="text-slate-300 font-light select-none shrink-0">/</span>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <span className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[110px] sm:max-w-xs md:max-w-md">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+            <span
+              className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[200px] md:max-w-[280px] lg:max-w-[340px]"
+              title={`#${questionNumber}. ${problem.title}`}
+            >
               #{questionNumber}. {problem.title}
             </span>
 
             <span
               className={cn(
-                "px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md capitalize shrink-0 border",
+                "px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md capitalize shrink-0 border",
                 problem.difficulty === "easy"
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                   : problem.difficulty === "hard"
@@ -1302,19 +1306,21 @@ export default function ProblemSolvingWorkspace() {
         </div>
 
         {/* Right Action Bar: [Language ▼] [Reset Code] [Run] [Submit] [Final Submit] */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 overflow-x-auto no-scrollbar py-1">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto py-1">
           {/* Language selector: Single Language (fixed/locked) vs Multi Language (filtered dropdown) */}
           {availableLanguages.length === 1 ? (
-            <div className="h-8 sm:h-8.5 px-2 sm:px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-1.5 shadow-2xs select-none shrink-0">
-              <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
-              <span className="font-bold truncate max-w-[80px] sm:max-w-none">{availableLanguages[0]?.label || availableLanguages[0]?.name || "Language"}</span>
+            <div className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-1.5 shadow-2xs select-none shrink-0">
+              <span className="w-2 h-2 rounded-full bg-blue-600 inline-block shrink-0" />
+              <span className="font-bold truncate max-w-[80px] sm:max-w-none">
+                {availableLanguages[0]?.label || availableLanguages[0]?.name || "Language"}
+              </span>
             </div>
           ) : (
             <Select
               value={selectedLanguage}
               onValueChange={(val) => handleLanguageChange(val as CodingLanguage)}
             >
-              <SelectTrigger className="h-8 sm:h-8.5 text-xs font-semibold bg-white border-slate-200 w-24 sm:w-32 rounded-lg text-slate-800 shadow-2xs cursor-pointer shrink-0">
+              <SelectTrigger className="h-8 sm:h-8.5 text-xs font-semibold bg-white border-slate-200 w-28 sm:w-32 rounded-lg text-slate-800 shadow-2xs cursor-pointer shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-white border border-slate-200 shadow-md z-50">
@@ -1333,9 +1339,10 @@ export default function ProblemSolvingWorkspace() {
             variant="outline"
             size="sm"
             onClick={handleResetCode}
-            className="h-8 sm:h-8.5 px-2 sm:px-3 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer shrink-0"
+            className="h-8 sm:h-8.5 px-2.5 sm:px-3 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer shrink-0"
+            title="Reset code to starter template"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+            <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span className="hidden sm:inline">Reset Code</span>
             <span className="sm:hidden">Reset</span>
           </Button>
@@ -1346,7 +1353,8 @@ export default function ProblemSolvingWorkspace() {
             size="sm"
             onClick={handleRunCode}
             disabled={isRunning || isSubmitting || isRunningCustomInput}
-            className="h-8 sm:h-8.5 px-2.5 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
+            className="h-8 sm:h-8.5 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
+            title="Run Code against sample test cases (Ctrl+Enter)"
           >
             {isRunning ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1362,7 +1370,8 @@ export default function ProblemSolvingWorkspace() {
             size="sm"
             onClick={handleSubmitCode}
             disabled={isSubmitting || isRunning || isRunningCustomInput}
-            className="h-8 sm:h-8.5 px-2.5 sm:px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
+            className="h-8 sm:h-8.5 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
+            title="Submit code against all test cases"
           >
             {isSubmitting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1378,7 +1387,8 @@ export default function ProblemSolvingWorkspace() {
             size="sm"
             onClick={() => setShowFinalSubmitDialog(true)}
             disabled={isSubmitting || isRunning || isFinalSubmitting}
-            className="h-8 sm:h-8.5 px-2.5 sm:px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs gap-1.5 shadow-xs cursor-pointer transition-all whitespace-nowrap shrink-0"
+            className="h-8 sm:h-8.5 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs gap-1.5 shadow-xs cursor-pointer transition-all whitespace-nowrap shrink-0"
+            title="Confirm final assessment submission"
           >
             {isFinalSubmitting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1391,8 +1401,8 @@ export default function ProblemSolvingWorkspace() {
 
           {/* MNC Proctoring Status Badge */}
           {(isEnforceFullscreen || isRestrictCopyPaste || isRestrictScreenshot) && (
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-semibold">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-semibold shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
               <span>Proctored Session</span>
               {isEnforceFullscreen && !isFullscreenActive && (
                 <button

@@ -420,6 +420,95 @@ export function BulkUploadComponent({
         default_language: ["defaultlanguage", "default_language", "primarylanguage", "initiallanguage"],
       };
 
+      // Dynamically add aliases for public and hidden test cases 1 through 20
+      for (let i = 1; i <= 20; i++) {
+        const inpKey = i === 1 ? "testcase_1_input" : `testcase_${i}_input`;
+        const outKey = i === 1 ? "testcase_1_output" : `testcase_${i}_output`;
+        HEADER_ALIASES[inpKey] = Array.from(new Set([
+          ...(HEADER_ALIASES[inpKey] || []),
+          `testcase${i}input`,
+          `testcase${i}`,
+          `testcase${i}in`,
+          `tc${i}input`,
+          `tc${i}in`,
+          `tc${i}`,
+          `input${i}`,
+          `testcase_${i}_input`,
+          `test_case_${i}_input`,
+          `case_${i}_input`,
+          `case${i}input`,
+        ]));
+        HEADER_ALIASES[outKey] = Array.from(new Set([
+          ...(HEADER_ALIASES[outKey] || []),
+          `testcase${i}output`,
+          `testcase${i}expectedoutput`,
+          `testcase${i}expected`,
+          `testcase${i}out`,
+          `tc${i}output`,
+          `tc${i}expectedoutput`,
+          `tc${i}expected`,
+          `tc${i}out`,
+          `output${i}`,
+          `testcase_${i}_output`,
+          `test_case_${i}_output`,
+          `testcase_${i}_expected_output`,
+          `test_case_${i}_expected_output`,
+          `expected_output_${i}`,
+          `case_${i}_output`,
+          `case${i}output`,
+          `case_${i}_expected_output`,
+          `case${i}expectedoutput`,
+        ]));
+
+        const hInpKey = i === 1 ? "hidden_testcase_input" : `hidden_testcase_${i}_input`;
+        const hOutKey = i === 1 ? "hidden_testcase_output" : `hidden_testcase_${i}_output`;
+        HEADER_ALIASES[hInpKey] = Array.from(new Set([
+          ...(HEADER_ALIASES[hInpKey] || []),
+          `hiddentestcase${i}input`,
+          `hiddentestcase${i}`,
+          `hiddeninput${i}`,
+          `hidden${i}input`,
+          `h${i}input`,
+          `h${i}in`,
+          `hidden_testcase_${i}_input`,
+          `hidden_test_case_${i}_input`,
+          `hidden_input_${i}`,
+          `hiddencase${i}input`,
+          `htc${i}input`,
+          ...(i === 1 ? [
+            "hiddentestcaseinput", "hiddeninput", "h1input", "hiddentestcase",
+            "hidden_testcase_input", "hidden_test_case_input", "hidden_input",
+            "hidden_testcase_1_input", "hidden_test_case_1_input", "hidden_input_1"
+          ] : [])
+        ]));
+        HEADER_ALIASES[hOutKey] = Array.from(new Set([
+          ...(HEADER_ALIASES[hOutKey] || []),
+          `hiddentestcase${i}output`,
+          `hiddentestcase${i}expectedoutput`,
+          `hiddenoutput${i}`,
+          `hiddenexpectedoutput${i}`,
+          `hidden${i}output`,
+          `h${i}output`,
+          `h${i}out`,
+          `h${i}expectedoutput`,
+          `hidden_testcase_${i}_output`,
+          `hidden_test_case_${i}_output`,
+          `hidden_testcase_${i}_expected_output`,
+          `hidden_test_case_${i}_expected_output`,
+          `hidden_output_${i}`,
+          `hidden_expected_output_${i}`,
+          `hiddencase${i}output`,
+          `hiddencase${i}expectedoutput`,
+          `htc${i}output`,
+          `htc${i}expectedoutput`,
+          ...(i === 1 ? [
+            "hiddentestcaseoutput", "hiddentestcaseexpectedoutput", "hiddenoutput", "hiddenexpectedoutput", "h1output",
+            "hidden_testcase_output", "hidden_test_case_output", "hidden_output", "hidden_expected_output",
+            "hidden_testcase_1_output", "hidden_test_case_1_output", "hidden_output_1", "hidden_testcase_1_expected_output"
+          ] : [])
+        ]));
+      }
+
       const columnMapping: Record<string, ColumnDefinition> = {};
       config.columns.forEach((col) => {
         columnMapping[cleanHeader(col.label)] = col;
@@ -636,21 +725,42 @@ export function BulkUploadComponent({
           }
 
           // 5. Test cases validation (at least 1 public and 1 hidden testcase)
-          const hasPublic = Boolean(
-            resolvePublicTestCase(mappedRow, 1) ||
-            mappedRow.sample_input ||
-            mappedRow.sample_output ||
-            mappedRow.testcase_1_output ||
-            mappedRow.testcase_1_input ||
-            mappedRow.testcase_2_output
-          );
-          const hasHidden = Boolean(
-            resolveHiddenTestCase(mappedRow, 1) ||
-            mappedRow.hidden_testcase_output ||
-            mappedRow.hidden_testcase_input ||
-            mappedRow.hidden_testcase_1_output ||
-            mappedRow.hidden_testcase_2_output
-          );
+          let hasPublic = false;
+          for (let pi = 1; pi <= 20; pi++) {
+            if (resolvePublicTestCase(mappedRow, pi)) {
+              hasPublic = true;
+              break;
+            }
+          }
+          if (!hasPublic) {
+            hasPublic = Boolean(
+              mappedRow.sample_input ||
+              mappedRow.sample_output ||
+              mappedRow.testcase_1_output ||
+              mappedRow.testcase_1_input ||
+              mappedRow.testcase_2_output
+            );
+          }
+
+          let hasHidden = false;
+          for (let hi = 1; hi <= 20; hi++) {
+            if (resolveHiddenTestCase(mappedRow, hi)) {
+              hasHidden = true;
+              break;
+            }
+          }
+          if (!hasHidden) {
+            hasHidden = Boolean(
+              mappedRow.hidden_testcase_output ||
+              mappedRow.hidden_testcase_input ||
+              mappedRow.hidden_testcase_1_output ||
+              mappedRow.hidden_testcase_2_output ||
+              mappedRow.hidden_test_cases ||
+              mappedRow.hidden_testcases ||
+              mappedRow.hiddenTestCases ||
+              Object.keys(mappedRow).some((k) => k.toLowerCase().includes("hidden") && mappedRow[k] && String(mappedRow[k]).trim() !== "")
+            );
+          }
 
           if (!hasPublic) {
             errors.push({

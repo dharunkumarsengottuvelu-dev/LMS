@@ -2247,7 +2247,7 @@ export default function StudentPracticeCodingRunnerPage() {
         ) : (
           <>
             {/* Left: ← Back to Practice / #1. Title [Easy] */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 max-w-full">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <SensilearnLogo variant="mark" size="xs" href="/student/practices" className="shrink-0" />
               <button
                 type="button"

@@ -553,11 +553,11 @@ export function AssessmentQuestionEditor({
 
   // Filter test cases for tabs
   const publicTestCases = useMemo(
-    () => (currentQ?.testCases || []).filter((tc) => !tc.isHidden),
+    () => (currentQ?.testCases || []).filter((tc) => !tc.isHidden && !(tc as any).is_hidden),
     [currentQ?.testCases]
   );
   const hiddenTestCases = useMemo(
-    () => (currentQ?.testCases || []).filter((tc) => tc.isHidden),
+    () => (currentQ?.testCases || []).filter((tc) => Boolean(tc.isHidden || (tc as any).is_hidden)),
     [currentQ?.testCases]
   );
 

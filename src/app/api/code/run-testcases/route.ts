@@ -70,20 +70,53 @@ export async function POST(request: NextRequest) {
 
       if (dbTc && dbTc.length > 0) {
         testCases = includeHidden ? dbTc : dbTc.filter(tc => !tc.is_hidden);
+        // If includeHidden is requested but dbTc has no hidden cases, check if hidden cases exist in starter_code
+        if (includeHidden && !dbTc.some(tc => tc.is_hidden)) {
+          const { data: dbProblem } = await supabase
+            .from("coding_problems")
+            .select("test_cases, sample_test_cases, hidden_test_cases, starter_code")
+            .eq("id", problem_id)
+            .maybeSingle();
+          if (dbProblem) {
+            const starter = typeof dbProblem.starter_code === "object" && dbProblem.starter_code !== null ? dbProblem.starter_code : {};
+            const hiddenFromStarter = (dbProblem.hidden_test_cases || starter.hidden_test_cases || []) as TestCase[];
+            if (Array.isArray(hiddenFromStarter) && hiddenFromStarter.length > 0) {
+              testCases = [...dbTc, ...hiddenFromStarter.map((tc: any, hIdx: number) => ({
+                id: tc.id || `tc_hid_${hIdx + 1}`,
+                input: tc.input || "",
+                expected_output: tc.expected_output || tc.expectedOutput || "",
+                is_hidden: true,
+              }))];
+            }
+          }
+        }
         if (testCases.length === 0 && dbTc.length > 0) {
           testCases = dbTc;
         }
       } else {
         const { data: dbProblem } = await supabase
           .from("coding_problems")
-          .select("test_cases, sample_test_cases, starter_code, dataset_name, sql_engine, schema_sql, seed_sql, comparison_mode")
+          .select("test_cases, sample_test_cases, hidden_test_cases, starter_code, dataset_name, sql_engine, schema_sql, seed_sql, comparison_mode")
           .eq("id", problem_id)
           .maybeSingle();
 
         if (dbProblem) {
           problem = dbProblem;
           const starter = typeof dbProblem.starter_code === "object" && dbProblem.starter_code !== null ? dbProblem.starter_code : {};
-          const allDbCases = ((dbProblem.test_cases || dbProblem.sample_test_cases || starter.test_cases || starter.sample_test_cases) as TestCase[]) || [];
+          const sampleCases = Array.isArray(dbProblem.sample_test_cases) ? dbProblem.sample_test_cases : (Array.isArray(starter.sample_test_cases) ? starter.sample_test_cases : []);
+          const hiddenCases = Array.isArray(dbProblem.hidden_test_cases) ? dbProblem.hidden_test_cases : (Array.isArray(starter.hidden_test_cases) ? starter.hidden_test_cases : []);
+          const directCases = Array.isArray(dbProblem.test_cases) ? dbProblem.test_cases : (Array.isArray(starter.test_cases) ? starter.test_cases : []);
+          
+          let allDbCases: TestCase[] = [];
+          if (sampleCases.length > 0 || hiddenCases.length > 0) {
+            allDbCases = [
+              ...sampleCases.map((tc: any) => ({ ...tc, is_hidden: false })),
+              ...hiddenCases.map((tc: any) => ({ ...tc, is_hidden: true })),
+            ];
+          } else {
+            allDbCases = directCases as TestCase[];
+          }
+
           testCases = includeHidden ? allDbCases : allDbCases.filter(tc => !tc.is_hidden && !(tc as any).isHidden);
           if (testCases.length === 0 && allDbCases.length > 0) {
             testCases = allDbCases;

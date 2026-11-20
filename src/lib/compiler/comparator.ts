@@ -269,8 +269,23 @@ export interface NormalizedTestCase {
   is_hidden: boolean;
 }
 
+export function isTestCaseHidden(tc: any): boolean {
+  if (!tc) return false;
+  return (
+    tc.is_hidden === true ||
+    tc.isHidden === true ||
+    tc.hidden === true ||
+    String(tc.is_hidden).trim().toLowerCase() === "true" ||
+    String(tc.is_hidden).trim() === "1" ||
+    String(tc.isHidden).trim().toLowerCase() === "true" ||
+    String(tc.isHidden).trim() === "1" ||
+    String(tc.type).trim().toLowerCase() === "hidden" ||
+    String(tc.category).trim().toLowerCase() === "hidden"
+  );
+}
+
 export function normalizeTestCase(tc: any, index: number = 0): NormalizedTestCase {
-  const isHidden = Boolean(tc?.is_hidden || tc?.isHidden || tc?.hidden);
+  const isHidden = isTestCaseHidden(tc);
   const rawInput = tc?.input !== undefined && tc?.input !== null ? tc.input : (tc?.stdin !== undefined && tc?.stdin !== null ? tc.stdin : "");
   return {
     id: String(tc?.id || tc?.test_case_id || `tc_${index + 1}`),
@@ -321,7 +336,7 @@ export function extractSampleTestCases(problem: any): NormalizedTestCase[] {
       ? starter.test_cases
       : [];
 
-  const publicCases = allCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden && !tc.hidden);
+  const publicCases = allCases.filter((tc: any) => !isTestCaseHidden(tc));
   if (publicCases.length > 0) {
     return publicCases.map((tc: any, idx: number) => ({
       ...normalizeTestCase(tc, idx),
@@ -385,41 +400,54 @@ export function extractHiddenTestCases(problem: any): NormalizedTestCase[] {
     ? problem.starter_code
     : {};
 
-  // 1. Direct hidden_test_cases
-  const directHidden =
-    Array.isArray(problem.hidden_test_cases) && problem.hidden_test_cases.length > 0
-      ? problem.hidden_test_cases
-      : Array.isArray(problem.hiddenTestCases) && problem.hiddenTestCases.length > 0
-      ? problem.hiddenTestCases
-      : Array.isArray(starter.hidden_test_cases) && starter.hidden_test_cases.length > 0
-      ? starter.hidden_test_cases
-      : Array.isArray(starter.hiddenTestCases) && starter.hiddenTestCases.length > 0
-      ? starter.hiddenTestCases
-      : [];
+  const collected: NormalizedTestCase[] = [];
+  const seenKeys = new Set<string>();
 
-  if (directHidden.length > 0) {
-    return directHidden.map((tc: any, idx: number) => ({
-      ...normalizeTestCase(tc, idx),
-      is_hidden: true,
-      isHidden: true,
-    }));
-  }
+  const addCase = (rawTc: any, idx: number) => {
+    if (!rawTc) return;
+    const normalized = normalizeTestCase(rawTc, idx);
+    const key = `${normalized.input}:::${normalized.expected_output}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      collected.push({
+        ...normalized,
+        is_hidden: true,
+      });
+    }
+  };
+
+  // 1. Direct hidden_test_cases
+  const directSources = [
+    problem.hidden_test_cases,
+    problem.hiddenTestCases,
+    starter.hidden_test_cases,
+    starter.hiddenTestCases,
+  ];
+
+  directSources.forEach((src) => {
+    if (Array.isArray(src)) {
+      src.forEach((tc, idx) => addCase(tc, collected.length + idx));
+    }
+  });
 
   // 2. Direct test_cases filtering for hidden
-  const allCases =
-    Array.isArray(problem.test_cases) && problem.test_cases.length > 0
-      ? problem.test_cases
-      : Array.isArray(problem.testCases) && problem.testCases.length > 0
-      ? problem.testCases
-      : Array.isArray(starter.test_cases) && starter.test_cases.length > 0
-      ? starter.test_cases
-      : [];
+  const allCasesSources = [
+    problem.test_cases,
+    problem.testCases,
+    starter.test_cases,
+    starter.testCases,
+  ];
 
-  const hiddenCases = allCases.filter((tc: any) => tc.is_hidden || tc.isHidden || tc.hidden);
-  return hiddenCases.map((tc: any, idx: number) => ({
-    ...normalizeTestCase(tc, idx),
-    is_hidden: true,
-    isHidden: true,
-  }));
+  allCasesSources.forEach((src) => {
+    if (Array.isArray(src)) {
+      src.forEach((tc, idx) => {
+        if (isTestCaseHidden(tc)) {
+          addCase(tc, collected.length + idx);
+        }
+      });
+    }
+  });
+
+  return collected;
 }
 

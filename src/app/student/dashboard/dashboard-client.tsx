@@ -3,10 +3,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  BookOpen, Calendar, Clock, CheckCircle2,
-  ArrowRight, Code2, Play, Terminal, ChevronRight
-} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +30,7 @@ interface StudentDashboardData {
 function StatCard({
   value, label, href, badgeText
 }: {
-  icon?: React.ElementType; value: number; label: string; href: string; badgeText?: string;
+  value: number; label: string; href: string; badgeText?: string;
 }) {
   return (
     <Link href={href} prefetch={true} className="block h-full group focus-visible:outline-hidden">
@@ -220,7 +216,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   }, [codingProblems]);
 
   return (
-    <div className="space-y-6 w-full pb-12">
+    <div className="space-y-6 w-full pb-12 font-sans antialiased">
       {/* 1. Welcome Banner Header - Enterprise MNC Card */}
       <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
@@ -233,15 +229,15 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button className="h-9 px-4 gap-1.5 font-semibold text-xs rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs transition-colors" asChild>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button className="h-9 px-4 font-semibold text-xs rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs transition-colors" asChild>
               <Link href="/student/practices" prefetch={true}>
-                <Code2 className="h-3.5 w-3.5" /> Practice Hub
+                Practice Hub
               </Link>
             </Button>
-            <Button variant="outline" className="h-9 px-3.5 gap-1.5 font-semibold text-xs rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs transition-colors" asChild>
+            <Button variant="outline" className="h-9 px-3.5 font-semibold text-xs rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs transition-colors" asChild>
               <Link href="/student/tests" prefetch={true}>
-                <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Scheduled Tests
+                Scheduled Tests
               </Link>
             </Button>
           </div>
@@ -262,22 +258,18 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         <div className="lg:col-span-8 space-y-6">
           <Card className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
             <CardHeader className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-zinc-800 flex flex-row items-center justify-between space-y-0">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <CardTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
-                  Continue Learning & Practice
-                </CardTitle>
-              </div>
+              <CardTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
+                Continue Learning & Practice
+              </CardTitle>
 
               <Button variant="ghost" size="sm" className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 h-8 px-2.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30" asChild>
-                <Link href="/student/practices">View All Tracks ({enrichedPracticeTracks.length}) →</Link>
+                <Link href="/student/practices">View All Tracks ({enrichedPracticeTracks.length})</Link>
               </Button>
             </CardHeader>
 
             <CardContent className="p-4 sm:p-5 space-y-3">
               {allActiveLearning.length === 0 ? (
-                <div className="py-8 text-center space-y-3 bg-slate-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
-                  <BookOpen className="h-8 w-8 text-slate-400 dark:text-zinc-500 mx-auto opacity-60" />
+                <div className="py-8 px-4 text-center space-y-2 bg-slate-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
                   <p className="text-sm font-semibold text-slate-900 dark:text-zinc-100">No Active Practices or Courses Assigned</p>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
                     Practice tracks and courses assigned by your Trainer or Admin will appear here automatically.
@@ -332,7 +324,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                           <Button
                             size="sm"
                             className={cn(
-                              "h-8.5 px-3.5 text-xs font-semibold gap-1.5 rounded-lg shadow-2xs transition-colors",
+                              "h-8 px-4 text-xs font-semibold rounded-lg shadow-2xs transition-colors",
                               isDone
                                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                 : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
@@ -340,7 +332,6 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                             asChild
                           >
                             <Link href={`/student/practices/${item.id}`}>
-                              <Play className="h-3 w-3 fill-current" />
                               {isDone ? "Review" : isInProgress ? "Continue" : "Start"}
                             </Link>
                           </Button>
@@ -389,7 +380,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                       <Button
                         size="sm"
                         className={cn(
-                          "h-8.5 px-3.5 text-xs font-semibold gap-1.5 shrink-0 rounded-lg shadow-2xs transition-colors",
+                          "h-8 px-4 text-xs font-semibold shrink-0 rounded-lg shadow-2xs transition-colors",
                           item.isCompleted
                             ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                             : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
@@ -397,13 +388,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                         asChild
                       >
                         <Link href={`/student/course/${item.slug}`}>
-                          {item.isCompleted ? (
-                            <>Review <CheckCircle2 className="h-3 w-3" /></>
-                          ) : item.progressPercentage > 0 ? (
-                            <>Resume <ArrowRight className="h-3 w-3" /></>
-                          ) : (
-                            <>Start <Play className="h-3 w-3 fill-current" /></>
-                          )}
+                          {item.isCompleted ? "Review" : item.progressPercentage > 0 ? "Resume" : "Start"}
                         </Link>
                       </Button>
                     </div>
@@ -413,34 +398,42 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </CardContent>
           </Card>
 
-          {/* Quick Learning Hub & Shortcut Modules - Balances Left & Right columns */}
+          {/* Quick Learning Hub & Shortcut Modules - Clean Enterprise MNC Design */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Link href="/student/practices" className="group block">
-              <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-blue-500/50 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                    <Code2 className="h-4 w-4" />
+            <Link href="/student/practices" className="group block h-full">
+              <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-blue-500/60 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 text-blue-700 bg-blue-50/70 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50 rounded-md">
+                      Practice Tracks
+                    </Badge>
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:underline">Open</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">Practice Hub & Modules</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Solve structured sub-modules, coding questions, and MCQs.</p>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
+                    Practice Hub & Modules
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                    Solve structured sub-modules, coding questions, and MCQs.
+                  </p>
                 </div>
               </div>
             </Link>
 
-            <Link href="/coding" className="group block">
-              <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-blue-500/50 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                    <Terminal className="h-4 w-4" />
+            <Link href="/coding" className="group block h-full">
+              <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-emerald-500/60 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 text-emerald-700 bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50 rounded-md">
+                      Coding Sandbox
+                    </Badge>
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 group-hover:underline">Launch</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">Coding Lab & Challenges</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Open coding workbench, test cases, and algorithmic problems.</p>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
+                    Coding Lab & Challenges
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                    Open coding workbench, test cases, and algorithmic problems.
+                  </p>
                 </div>
               </div>
             </Link>
@@ -451,12 +444,12 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         <div className="lg:col-span-4 space-y-6">
           {/* Active Live Class Alert Card if Live Now */}
           {liveNowClasses.length > 0 && (
-            <Card className="bg-emerald-950/20 border-emerald-500/40 shadow-card">
+            <Card className="bg-emerald-950/20 border-emerald-500/40 shadow-2xs">
               <CardHeader className="p-4 pb-2 border-b border-emerald-500/20 flex flex-row items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Live Interactive Class
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  Live Interactive Session
                 </span>
-                <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">LIVE NOW</Badge>
+                <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-2 py-0.5">LIVE NOW</Badge>
               </CardHeader>
               <CardContent className="p-4 space-y-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
@@ -465,9 +458,9 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                   {liveNowClasses[0].courseName || "Interactive Session"}
                 </p>
-                <Button className="w-full h-8 text-xs font-semibold gap-1.5 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs" asChild>
+                <Button className="w-full h-8 text-xs font-semibold mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs" asChild>
                   <Link href={`/student/live-classes/${liveNowClasses[0].id}`}>
-                    Join Live Class <ArrowRight className="h-3 w-3" />
+                    Join Live Class
                   </Link>
                 </Button>
               </CardContent>
@@ -477,26 +470,21 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
           {/* Proctored Evaluations Card */}
           <Card className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
             <CardHeader className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-zinc-800 flex flex-row items-center justify-between space-y-0">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <CardTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
-                  Upcoming Proctored Evaluations
-                </CardTitle>
-              </div>
+              <CardTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
+                Upcoming Proctored Evaluations
+              </CardTitle>
               <Button variant="ghost" size="sm" className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 h-8 px-2.5 rounded-lg hover:bg-blue-50/50 dark:hover:bg-blue-950/30" asChild>
-                <Link href="/student/assessments">All →</Link>
+                <Link href="/student/assessments">All</Link>
               </Button>
             </CardHeader>
             <CardContent className="p-4 sm:p-5 space-y-3">
               {upcomingEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 px-4 text-center bg-slate-50/60 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
-                  <div className="h-9 w-9 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center mb-2">
-                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <p className="text-xs font-medium text-slate-600 dark:text-zinc-400">No upcoming evaluations scheduled.</p>
-                  <Button variant="ghost" size="sm" className="mt-2 h-7 px-2.5 text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400" asChild>
+                <div className="py-8 px-4 text-center space-y-2 bg-slate-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800">
+                  <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300">No upcoming evaluations scheduled.</p>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-xs mx-auto">Assessments will appear here once assigned by your institution.</p>
+                  <Button variant="outline" size="sm" className="mt-2 h-7 px-3 text-xs font-semibold text-slate-700 dark:text-zinc-300 rounded-lg" asChild>
                     <Link href="/student/assessments">
-                      View Assessments <ArrowRight className="h-3 w-3 ml-1" />
+                      View Assessments
                     </Link>
                   </Button>
                 </div>
@@ -529,9 +517,9 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                       <span className="shrink-0">{evt.duration}</span>
                     </div>
 
-                    <Button className="w-full h-8 text-xs font-semibold gap-1.5 mt-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg shadow-2xs" asChild>
+                    <Button className="w-full h-8 text-xs font-semibold mt-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg shadow-2xs" asChild>
                       <Link href={evt.href}>
-                        {evt.isLive ? "Start Evaluation" : "View Assessment"} <ArrowRight className="h-3 w-3" />
+                        {evt.isLive ? "Start Evaluation" : "View Assessment"}
                       </Link>
                     </Button>
                   </div>
@@ -543,20 +531,17 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
           {/* Challenges Card */}
           <Card className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
             <CardHeader className="p-4 sm:p-5 pb-3 sm:pb-3.5 border-b border-slate-200/80 dark:border-zinc-800 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <CardTitle className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2 tracking-tight">
-                  Challenges
-                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/40 rounded-md">
-                    New
-                  </Badge>
-                </CardTitle>
-              </div>
+              <CardTitle className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2 tracking-tight">
+                Challenges
+                <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/40 rounded-md">
+                  New
+                </Badge>
+              </CardTitle>
               <Link
                 href="/coding"
                 className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors"
               >
-                All Problems →
+                All Problems
               </Link>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 space-y-2">

@@ -186,7 +186,22 @@ export async function POST(request: NextRequest) {
             .order("order_index", { ascending: true });
 
           if (dbTc && dbTc.length > 0) {
-            dbProblemCases = dbTc;
+            const mergedCases: any[] = [...dbTc];
+            if (!dbTc.some((tc: any) => tc.is_hidden || tc.isHidden)) {
+              const starterObj = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+              const hiddenFallback = (problem.hidden_test_cases || starterObj.hidden_test_cases || []) as any[];
+              if (Array.isArray(hiddenFallback) && hiddenFallback.length > 0) {
+                hiddenFallback.forEach((htc: any, hIdx: number) => {
+                  mergedCases.push({
+                    id: htc.id || `tc_hid_${hIdx + 1}`,
+                    input: htc.input || "",
+                    expected_output: htc.expected_output || htc.expectedOutput || "",
+                    is_hidden: true,
+                  });
+                });
+              }
+            }
+            dbProblemCases = mergedCases;
           } else {
             const directTc = Array.isArray(problem.test_cases) ? problem.test_cases : [];
             const sampleTc = Array.isArray(problem.sample_test_cases) ? problem.sample_test_cases : [];

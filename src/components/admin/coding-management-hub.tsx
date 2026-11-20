@@ -324,7 +324,8 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
     <div className="space-y-8">
       {/* Unified Enterprise Page Header matching PracticesHub */}
       <PageHeader
-        title={role === "admin" ? "Coding & SQL Problems Repository" : "Coding & SQL Practice Problems"}
+        title="Challenges"
+        description="Manage algorithmic coding problems and SQL database challenges."
         actions={
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* Unified Bulk Upload Button with Dropdown Options */}
@@ -398,7 +399,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
         <div className="relative w-full flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
           <Input
-            placeholder="Search problems by title, slug, ID, or tags..."
+            placeholder="Search challenges by title, slug, ID, or tags..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-none shadow-none focus-visible:ring-0 w-full rounded-lg"
@@ -493,7 +494,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                   />
                 </th>
                 <th className="py-2.5 px-4 w-12 text-left whitespace-nowrap">#</th>
-                <th className="py-2.5 px-4 min-w-[220px] text-left">Problem Name</th>
+                <th className="py-2.5 px-4 min-w-[220px] text-left">Challenge Name</th>
                 <th className="py-2.5 px-4 whitespace-nowrap text-left">Difficulty</th>
                 <th className="py-2.5 px-4 whitespace-nowrap text-left">Type</th>
                 <th className="py-2.5 px-4 whitespace-nowrap text-left">Test Cases</th>
@@ -505,13 +506,13 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="py-10 text-center">
-                    <Loading size="sm" text="Loading coding problems..." />
+                    <Loading size="sm" text="Loading challenges..." />
                   </td>
                 </tr>
               ) : filteredProblems.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-14 text-center text-slate-500 text-xs">
-                    <p className="font-bold text-slate-700 text-sm">No Coding Problems in Database</p>
+                    <p className="font-bold text-slate-700 text-sm">No Challenges in Database</p>
                     <p className="mt-1 text-slate-400">
                       All static mock data has been removed. Click &quot;Create Problem&quot; above to create your first question in Supabase.
                     </p>
@@ -519,9 +520,11 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                 </tr>
               ) : (
                 filteredProblems.map((prob, idx) => {
-                  const testCases = prob.test_cases || [];
-                  const publicCount = testCases.filter((tc) => !tc.is_hidden).length;
-                  const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
+                  const testCases = prob.test_cases || (prob as any).testCases || [];
+                  const isTcHidden = (tc: any) => Boolean(tc?.is_hidden || tc?.isHidden || String(tc?.is_hidden).toLowerCase() === "true" || String(tc?.type).toLowerCase() === "hidden");
+                  const directHidden = (prob as any).hidden_test_cases || (prob as any).hiddenTestCases || (prob.starter_code as any)?.hidden_test_cases || [];
+                  const publicCount = testCases.filter((tc) => !isTcHidden(tc)).length || (prob as any).sample_test_cases?.length || 0;
+                  const hiddenCount = testCases.filter(isTcHidden).length || (Array.isArray(directHidden) ? directHidden.length : 0);
                   const isSql = prob.category === "Databases" || prob.category === "SQL" || (prob as any).type === "SQL" || !!prob.sql_engine;
                   const rawType = (prob as any).type || prob.category || (isSql ? "SQL" : "Algorithm");
                   const isSelected = selectedProblemIds.includes(prob.id);
@@ -687,7 +690,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           isOpen={isBulkUploadOpen}
           onClose={() => setIsBulkUploadOpen(false)}
           moduleType="coding_problem"
-          moduleTitle={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
+          moduleTitle={role === "admin" ? "Challenges" : "Practice Challenges"}
           onImport={handleBulkImport}
           onSwitchToSql={() => setBulkUploadType("sql")}
         />

@@ -35,18 +35,31 @@ export function resolvePublicTestCase(row: Record<string, any>, i: number): { in
     row[`tc_${i}_input`],
     row[`tc${i}_input`],
     row[`tc${i}input`],
+    row[`tc_${i}`],
+    row[`tc${i}`],
     row[`input_${i}`],
     row[`input${i}`],
     row[`testcase_${i}`],
     row[`testcase${i}`],
     row[`test_case_${i}`],
+    row[`test_case${i}`],
+    row[`case_${i}_input`],
+    row[`case${i}_input`],
+    row[`case${i}input`],
     ...(i === 1 ? [
       row.testcase_input,
+      row.testcase1input,
       row.test_case_input,
+      row.test_case_1_input,
       row.sample_input,
+      row.sample_input_1,
       row.sampleInput,
+      row.sampleInput1,
       row.tc1_input,
       row.tc1input,
+      row.input,
+      row.input_1,
+      row.input1,
     ] : [])
   ];
 
@@ -61,21 +74,71 @@ export function resolvePublicTestCase(row: Record<string, any>, i: number): { in
     row[`output_${i}`],
     row[`output${i}`],
     row[`testcase_${i}_expected_output`],
+    row[`testcase${i}_expected_output`],
+    row[`testcase${i}expectedoutput`],
     row[`test_case_${i}_expected_output`],
+    row[`test_case${i}_expected_output`],
+    row[`test_case${i}expectedoutput`],
+    row[`expected_output_${i}`],
+    row[`expected_output${i}`],
+    row[`expectedoutput${i}`],
+    row[`case_${i}_output`],
+    row[`case${i}_output`],
+    row[`case${i}output`],
+    row[`case_${i}_expected_output`],
+    row[`case${i}expectedoutput`],
     ...(i === 1 ? [
       row.testcase_output,
+      row.testcase1output,
       row.test_case_output,
+      row.test_case_1_output,
       row.sample_output,
+      row.sample_output_1,
       row.sampleOutput,
+      row.sampleOutput1,
       row.tc1_output,
       row.tc1output,
       row.testcase_expected_output,
+      row.testcase1expectedoutput,
       row.test_case_expected_output,
+      row.test_case_1_expected_output,
+      row.expected_output,
+      row.expected_output_1,
+      row.expectedOutput,
+      row.output,
+      row.output_1,
+      row.output1,
     ] : [])
   ];
 
-  const inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
-  const out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+  let inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+  let out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+
+  // Dynamic fallback: scan row keys if not found
+  if (inp === undefined || out === undefined) {
+    const keys = Object.keys(row);
+    if (inp === undefined) {
+      const matchKey = keys.find((k) => {
+        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
+        if (norm.includes("hidden")) return false;
+        return norm === `testcase${i}input` || norm === `tc${i}input` || norm === `input${i}` || norm === `case${i}input`;
+      });
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
+        inp = row[matchKey];
+      }
+    }
+    if (out === undefined) {
+      const matchKey = keys.find((k) => {
+        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
+        if (norm.includes("hidden")) return false;
+        return norm === `testcase${i}output` || norm === `tc${i}output` || norm === `output${i}` ||
+               norm === `testcase${i}expectedoutput` || norm === `expectedoutput${i}` || norm === `case${i}output`;
+      });
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
+        out = row[matchKey];
+      }
+    }
+  }
 
   if (inp !== undefined || out !== undefined) {
     return { input: String(inp ?? "").trim(), output: String(out ?? "").trim() };
@@ -94,28 +157,59 @@ export function resolveHiddenTestCase(row: Record<string, any>, h: number): { in
     row[`hiddentestcase_${h}_input`],
     row[`hiddentestcase${h}_input`],
     row[`hiddentestcase${h}input`],
+    row[`hiddentestcase_${h}`],
+    row[`hiddentestcase${h}`],
     row[`hidden_input_${h}`],
     row[`hidden_input${h}`],
+    row[`hiddeninput_${h}`],
+    row[`hiddeninput${h}`],
     row[`hidden${h}_input`],
     row[`hidden${h}Input`],
     row[`hidden${h}input`],
     row[`h${h}_input`],
     row[`h${h}input`],
+    row[`h${h}_in`],
+    row[`h${h}in`],
     row[`hidden_testcase_${h}`],
     row[`hidden_testcase${h}`],
     row[`hidden_test_case_${h}`],
+    row[`hidden_test_case${h}`],
+    row[`hidden_case_${h}_input`],
+    row[`hiddencase${h}input`],
+    row[`hidden_case_${h}`],
+    row[`hiddencase${h}`],
+    row[`h_tc_${h}_input`],
+    row[`htc_${h}_input`],
+    row[`htc${h}_input`],
+    row[`htc${h}input`],
     ...(h === 1 ? [
       row.hidden_testcase_input,
+      row.hidden_testcase_1_input,
       row.hidden_test_case_input,
+      row.hidden_test_case_1_input,
       row.hiddentestcaseinput,
+      row.hiddentestcase1input,
       row.hidden_input,
+      row.hidden_input_1,
       row.hiddenInput,
       row.hiddeninput,
+      row.hiddeninput1,
       row.hidden_testcase,
+      row.hidden_testcase_1,
       row.hidden_test_case,
+      row.hidden_test_case_1,
       row.hiddentestcase,
+      row.hiddentestcase1,
       row.h1_input,
       row.h1input,
+      row.h1_in,
+      row.h1in,
+      row.hidden_case_1_input,
+      row.hiddencase1input,
+      row.hidden_case_1,
+      row.hiddencase1,
+      row.htc1_input,
+      row.htc1input,
     ] : [])
   ];
 
@@ -129,32 +223,128 @@ export function resolveHiddenTestCase(row: Record<string, any>, h: number): { in
     row[`hiddentestcase_${h}_output`],
     row[`hiddentestcase${h}_output`],
     row[`hiddentestcase${h}output`],
-    row[`hidden_output_${h}`],
-    row[`hidden_output${h}`],
-    row[`hidden${h}_output`],
-    row[`hidden${h}Output`],
-    row[`hidden${h}output`],
-    row[`h${h}_output`],
-    row[`h${h}output`],
+    row[`hiddentestcase_${h}_expected_output`],
+    row[`hiddentestcase${h}_expected_output`],
+    row[`hiddentestcase${h}expectedoutput`],
     row[`hidden_testcase_${h}_expected_output`],
     row[`hidden_test_case_${h}_expected_output`],
     row[`hidden_testcase${h}_expected_output`],
+    row[`hidden_test_case${h}_expected_output`],
+    row[`hidden_output_${h}`],
+    row[`hidden_output${h}`],
+    row[`hiddenoutput_${h}`],
+    row[`hiddenoutput${h}`],
+    row[`hidden${h}_output`],
+    row[`hidden${h}Output`],
+    row[`hidden${h}output`],
+    row[`hidden_expected_output_${h}`],
+    row[`hidden_expected_output${h}`],
+    row[`hiddenexpectedoutput_${h}`],
+    row[`hiddenexpectedoutput${h}`],
+    row[`hidden_${h}_output`],
+    row[`hidden_${h}_expected_output`],
+    row[`h${h}_output`],
+    row[`h${h}output`],
+    row[`h${h}_out`],
+    row[`h${h}out`],
+    row[`h${h}_expected_output`],
+    row[`h${h}expectedoutput`],
+    row[`hidden_case_${h}_output`],
+    row[`hiddencase${h}output`],
+    row[`hidden_case_${h}_expected_output`],
+    row[`hiddencase${h}expectedoutput`],
+    row[`h_tc_${h}_output`],
+    row[`htc_${h}_output`],
+    row[`htc${h}_output`],
+    row[`htc${h}output`],
+    row[`htc${h}expectedoutput`],
     ...(h === 1 ? [
       row.hidden_testcase_output,
+      row.hidden_testcase_1_output,
       row.hidden_test_case_output,
+      row.hidden_test_case_1_output,
       row.hiddentestcaseoutput,
+      row.hiddentestcase1output,
       row.hidden_output,
+      row.hidden_output_1,
       row.hiddenOutput,
       row.hiddenoutput,
+      row.hiddenoutput1,
       row.hidden_testcase_expected_output,
+      row.hidden_testcase_1_expected_output,
       row.hidden_test_case_expected_output,
+      row.hidden_test_case_1_expected_output,
+      row.hiddentestcaseexpectedoutput,
+      row.hiddentestcase1expectedoutput,
+      row.hidden_expected_output,
+      row.hidden_expected_output_1,
+      row.hiddenexpectedoutput,
+      row.hiddenexpectedoutput1,
       row.h1_output,
       row.h1output,
+      row.h1_out,
+      row.h1out,
+      row.h1_expected_output,
+      row.h1expectedoutput,
+      row.hidden_case_1_output,
+      row.hiddencase1output,
+      row.hidden_case_1_expected_output,
+      row.hiddencase1expectedoutput,
+      row.htc1_output,
+      row.htc1output,
+      row.htc1expectedoutput,
     ] : [])
   ];
 
-  const inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
-  const out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+  let inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+  let out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+
+  // Dynamic fallback: scan row keys if not found
+  if (inp === undefined || out === undefined) {
+    const keys = Object.keys(row);
+    if (inp === undefined) {
+      const matchKey = keys.find((k) => {
+        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
+        if (!norm.includes("hidden") && !norm.startsWith("h") && !norm.includes("htc")) return false;
+        return (
+          norm === `hiddentestcase${h}input` ||
+          norm === `hiddentestcase${h}` ||
+          norm === `hiddeninput${h}` ||
+          norm === `hidden${h}input` ||
+          norm === `h${h}input` ||
+          norm === `hiddencase${h}input` ||
+          norm === `htc${h}input` ||
+          (h === 1 && (norm === "hiddentestcaseinput" || norm === "hiddeninput" || norm === "h1input"))
+        );
+      });
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
+        inp = row[matchKey];
+      }
+    }
+    if (out === undefined) {
+      const matchKey = keys.find((k) => {
+        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
+        if (!norm.includes("hidden") && !norm.startsWith("h") && !norm.includes("htc")) return false;
+        return (
+          norm === `hiddentestcase${h}output` ||
+          norm === `hiddentestcase${h}expectedoutput` ||
+          norm === `hiddenoutput${h}` ||
+          norm === `hiddenexpectedoutput${h}` ||
+          norm === `hidden${h}output` ||
+          norm === `h${h}output` ||
+          norm === `h${h}expectedoutput` ||
+          norm === `hiddencase${h}output` ||
+          norm === `hiddencase${h}expectedoutput` ||
+          norm === `htc${h}output` ||
+          norm === `htc${h}expectedoutput` ||
+          (h === 1 && (norm === "hiddentestcaseoutput" || norm === "hiddenoutput" || norm === "h1output" || norm === "hiddentestcaseexpectedoutput"))
+        );
+      });
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
+        out = row[matchKey];
+      }
+    }
+  }
 
   if (inp !== undefined || out !== undefined) {
     return { input: String(inp ?? "").trim(), output: String(out ?? "").trim() };
@@ -166,8 +356,8 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
   const publicTestCases: any[] = [];
   const hiddenTestCases: any[] = [];
 
-  // 1. Explicit Public Test Cases (1 to 10)
-  for (let i = 1; i <= 10; i++) {
+  // 1. Explicit Public Test Cases (1 to 20)
+  for (let i = 1; i <= 20; i++) {
     const res = resolvePublicTestCase(row, i);
     if (res) {
       publicTestCases.push({
@@ -196,8 +386,8 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
     });
   }
 
-  // 2. Hidden Test Cases (1 to 10)
-  for (let h = 1; h <= 10; h++) {
+  // 2. Hidden Test Cases (1 to 20)
+  for (let h = 1; h <= 20; h++) {
     const res = resolveHiddenTestCase(row, h);
     if (res) {
       hiddenTestCases.push({
@@ -940,17 +1130,15 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
 
     const testCases: any[] = [];
 
-    // Scan numbered test cases
+    // Scan numbered public test cases (1 to 20)
     for (let i = 1; i <= 20; i++) {
-      const inpVal = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`] ?? row[`input_${i}`] ?? row[`tc${i}_input`];
-      const outVal = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`] ?? row[`output_${i}`] ?? row[`tc${i}_output`];
-
-      if ((inpVal !== undefined && String(inpVal).trim() !== "") || (outVal !== undefined && String(outVal).trim() !== "")) {
+      const res = resolvePublicTestCase(row, i);
+      if (res) {
         testCases.push({
           id: `tc-${Date.now()}-${i}-${idx}`,
           name: `Test Case ${i}`,
-          input: cleanCsvVal(inpVal),
-          expected_output: cleanCsvVal(outVal),
+          input: cleanCsvVal(res.input),
+          expected_output: cleanCsvVal(res.output),
           is_hidden: false,
           is_enabled: true,
           weight: 10,
@@ -959,7 +1147,7 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       }
     }
 
-    // Sample fallback as Test Case 1 if no test cases given
+    // Sample fallback as Test Case 1 if no public test cases given
     if (testCases.length === 0 && (row.sample_input || row.sample_output)) {
       testCases.push({
         id: `tc-${Date.now()}-1-${idx}`,
@@ -973,21 +1161,15 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       });
     }
 
-    // Hidden Test Cases
-    for (let h = 1; h <= 10; h++) {
-      const hInp = h === 1
-        ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hidden_test_case_1_input)
-        : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_input_${h}`] ?? row[`hidden_${h}_input`]);
-      const hOut = h === 1
-        ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hidden_test_case_1_output)
-        : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_output_${h}`] ?? row[`hidden_${h}_output`]);
-
-      if ((hInp !== undefined && String(hInp).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
+    // Scan hidden test cases (1 to 20)
+    for (let h = 1; h <= 20; h++) {
+      const res = resolveHiddenTestCase(row, h);
+      if (res) {
         testCases.push({
           id: `tc-${Date.now()}-h${h}-${idx}`,
           name: `Hidden Case ${h}`,
-          input: cleanCsvVal(hInp),
-          expected_output: cleanCsvVal(hOut),
+          input: cleanCsvVal(res.input),
+          expected_output: cleanCsvVal(res.output),
           is_hidden: true,
           is_enabled: true,
           weight: 20,
@@ -995,6 +1177,39 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
         });
       }
     }
+
+    // Embedded JSON test cases support (e.g. if column contains JSON array)
+    const parseJsonCases = (val: any) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      if (typeof val === "string" && val.trim().startsWith("[")) {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    const embeddedHidden = parseJsonCases(row.hidden_test_cases || row.hidden_testcases || row.hiddenTestCases || row.hidden_cases);
+    embeddedHidden.forEach((tc: any, hIdx: number) => {
+      const inp = cleanCsvVal(tc.input ?? tc.stdin);
+      const out = cleanCsvVal(tc.expected_output ?? tc.output ?? tc.expectedOutput);
+      if (inp || out) {
+        testCases.push({
+          id: `tc-${Date.now()}-eh${hIdx + 1}-${idx}`,
+          name: tc.name || `Hidden Case ${testCases.filter(t => t.is_hidden).length + 1}`,
+          input: inp,
+          expected_output: out,
+          is_hidden: true,
+          is_enabled: true,
+          weight: Number(tc.weight) || 20,
+          order_index: testCases.length,
+        });
+      }
+    });
 
     // Example Cases
     const exampleCases: any[] = [];
@@ -1117,6 +1332,12 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       allowedLanguages: allowed_languages,
       default_language,
       defaultLanguage: default_language,
+      test_cases: testCases,
+      testCases: testCases,
+      sample_test_cases: testCases.filter((tc) => !tc.is_hidden),
+      sampleTestCases: testCases.filter((tc) => !tc.is_hidden),
+      hidden_test_cases: testCases.filter((tc) => !!tc.is_hidden),
+      hiddenTestCases: testCases.filter((tc) => !!tc.is_hidden),
       starter_code: {
         templates,
         language_mode: mode,
@@ -1124,11 +1345,13 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
         allowedLanguages: allowed_languages,
         default_language,
         defaultLanguage: default_language,
+        test_cases: testCases,
+        sample_test_cases: testCases.filter((tc) => !tc.is_hidden),
+        hidden_test_cases: testCases.filter((tc) => !!tc.is_hidden),
       },
       sql_engine,
       schema_sql,
       solution_sql,
-      test_cases: testCases,
       time_limit_ms: Number(row.time_limit_ms) || 2000,
       memory_limit_mb: Number(row.memory_limit_mb) || 256,
       status: "published",
@@ -2378,13 +2601,13 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
     mapToPayload: (row, idx) => {
       const secName = String(row.sectionName || row.section || "Coding Challenges").trim();
       const testCases: any[] = [];
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 20; i++) {
         const res = resolvePublicTestCase(row, i);
         if (res) {
           testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: false, is_hidden: false });
         }
       }
-      for (let h = 1; h <= 10; h++) {
+      for (let h = 1; h <= 20; h++) {
         const res = resolveHiddenTestCase(row, h);
         if (res) {
           testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: true, is_hidden: true });
@@ -2423,13 +2646,13 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         const rows = group.rows || [];
         const questions = rows.map((r, qIdx) => {
           const testCases: any[] = [];
-          for (let i = 1; i <= 10; i++) {
+          for (let i = 1; i <= 20; i++) {
             const res = resolvePublicTestCase(r, i);
             if (res) {
               testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: false, is_hidden: false });
             }
           }
-          for (let h = 1; h <= 10; h++) {
+          for (let h = 1; h <= 20; h++) {
             const res = resolveHiddenTestCase(r, h);
             if (res) {
               testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: true, is_hidden: true });
@@ -3557,7 +3780,7 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
 
       // Coding Problem
       const testCases: any[] = [];
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 20; i++) {
         const res = resolvePublicTestCase(row, i);
         if (res) {
           testCases.push({
@@ -3570,7 +3793,7 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
           });
         }
       }
-      for (let h = 1; h <= 10; h++) {
+      for (let h = 1; h <= 20; h++) {
         const res = resolveHiddenTestCase(row, h);
         if (res) {
           testCases.push({
@@ -3665,6 +3888,8 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
         default_language,
         defaultLanguage: default_language,
         test_cases: testCases,
+        sample_test_cases: testCases.filter((tc) => !tc.is_hidden),
+        hidden_test_cases: testCases.filter((tc) => !!tc.is_hidden),
       };
 
       return {
@@ -4321,7 +4546,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
 
     const testCases: any[] = [];
     if (qType === "coding") {
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 20; i++) {
         const res = resolvePublicTestCase(row, i);
         if (res) {
           testCases.push({
@@ -4334,7 +4559,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
           });
         }
       }
-      for (let h = 1; h <= 10; h++) {
+      for (let h = 1; h <= 20; h++) {
         const res = resolveHiddenTestCase(row, h);
         if (res) {
           testCases.push({
@@ -4417,7 +4642,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
 
         const testCases: any[] = [];
         if (qType === "coding") {
-          for (let i = 1; i <= 10; i++) {
+          for (let i = 1; i <= 20; i++) {
             const res = resolvePublicTestCase(r, i);
             if (res) {
               testCases.push({
@@ -4430,7 +4655,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
               });
             }
           }
-          for (let h = 1; h <= 10; h++) {
+          for (let h = 1; h <= 20; h++) {
             const res = resolveHiddenTestCase(r, h);
             if (res) {
               testCases.push({

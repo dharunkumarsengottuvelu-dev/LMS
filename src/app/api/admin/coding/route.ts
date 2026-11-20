@@ -129,11 +129,41 @@ export async function GET(request: NextRequest) {
           sol = {};
         }
       }
-      const dbTc = testCasesByProblem.get(p.id);
-      const sampleTc = Array.isArray(extra.sample_test_cases) ? extra.sample_test_cases : [];
-      const hiddenTc = Array.isArray(extra.hidden_test_cases) ? extra.hidden_test_cases : [];
-      const combinedTc = [...sampleTc, ...hiddenTc];
-      const tcList = (dbTc && dbTc.length > 0) ? dbTc : (combinedTc.length > 0 ? combinedTc : (extra.test_cases || []));
+      const dbTc = testCasesByProblem.get(p.id) || [];
+      const sampleTc = Array.isArray(extra.sample_test_cases) ? extra.sample_test_cases : (Array.isArray(extra.sampleTestCases) ? extra.sampleTestCases : []);
+      const hiddenTc = Array.isArray(extra.hidden_test_cases) ? extra.hidden_test_cases : (Array.isArray(extra.hiddenTestCases) ? extra.hiddenTestCases : []);
+      const directTc = Array.isArray(extra.test_cases) ? extra.test_cases : (Array.isArray(extra.testCases) ? extra.testCases : []);
+
+      let tcList: any[] = [];
+      if (dbTc.length > 0) {
+        tcList = [...dbTc];
+        // If dbTc has no hidden cases, check if extra has hidden test cases and merge them
+        const hasDbHidden = dbTc.some((tc: any) => tc.is_hidden || tc.isHidden);
+        if (!hasDbHidden) {
+          const fallbackHidden = hiddenTc.length > 0
+            ? hiddenTc
+            : directTc.filter((tc: any) => tc.is_hidden || tc.isHidden || String(tc.is_hidden).toLowerCase() === "true");
+          fallbackHidden.forEach((htc: any, hIdx: number) => {
+            tcList.push({
+              id: htc.id || `tc_hid_${p.id}_${hIdx + 1}`,
+              name: htc.name || `Hidden Case ${hIdx + 1}`,
+              input: htc.input || "",
+              expected_output: htc.expected_output || htc.expectedOutput || "",
+              is_hidden: true,
+              order_index: tcList.length,
+              weight: htc.weight || 20,
+              is_enabled: true,
+            });
+          });
+        }
+      } else if (sampleTc.length > 0 || hiddenTc.length > 0) {
+        tcList = [
+          ...sampleTc.map((tc: any) => ({ ...tc, is_hidden: false })),
+          ...hiddenTc.map((tc: any) => ({ ...tc, is_hidden: true })),
+        ];
+      } else if (directTc.length > 0) {
+        tcList = directTc;
+      }
 
       const rawAllowed = extra.allowed_languages || extra.allowedLanguages;
       let finalAllowed: string[] | undefined = undefined;
@@ -178,6 +208,11 @@ export async function GET(request: NextRequest) {
         default_language: defaultLang,
         function_signature: extra.function_signature || "",
         test_cases: tcList,
+        testCases: tcList,
+        sample_test_cases: tcList.filter((tc: any) => !tc.is_hidden && !tc.isHidden),
+        sampleTestCases: tcList.filter((tc: any) => !tc.is_hidden && !tc.isHidden),
+        hidden_test_cases: tcList.filter((tc: any) => !!(tc.is_hidden || tc.isHidden)),
+        hiddenTestCases: tcList.filter((tc: any) => !!(tc.is_hidden || tc.isHidden)),
         status: p.status || "published",
         max_attempts: extra.max_attempts || 0,
         time_limit_ms: p.time_limit_ms || 2000,
@@ -271,30 +306,95 @@ export async function POST(request: NextRequest) {
           const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
           const slug = problemId ? (problem.slug || baseSlug) : `${baseSlug}-${Date.now().toString(36)}`;
 
-          const rawTestCases = Array.isArray(problem.test_cases)
-            ? problem.test_cases
+          const isTcHidden = (tc: any): boolean => {
+            if (!tc) return false;
+            return (
+              tc.is_hidden === true ||
+              tc.isHidden === true ||
+              tc.hidden === true ||
+              String(tc.is_hidden).trim().toLowerCase() === "true" ||
+              String(tc.is_hidden).trim() === "1" ||
+              String(tc.isHidden).trim().toLowerCase() === "true" ||
+              String(tc.isHidden).trim() === "1" ||
+              String(tc.type).trim().toLowerCase() === "hidden" ||
+              String(tc.category).trim().toLowerCase() === "hidden"
+            );
+          };
+
+          const rawTestCases: any[] = Array.isArray(problem.test_cases)
+            ? [...problem.test_cases]
             : Array.isArray((problem as any).testCases)
-            ? (problem as any).testCases
+            ? [...(problem as any).testCases]
             : [];
 
-          const allTestCases = rawTestCases.map((tc: any, idx: number) => ({
-            id: tc.id || `tc_${idx + 1}`,
-            name: tc.name || `Test Case ${idx + 1}`,
-            input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
-            expected_output: tc.expected_output !== undefined && tc.expected_output !== null
-              ? String(tc.expected_output)
-              : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
-                ? String(tc.expectedOutput)
-                : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
-            is_hidden: Boolean(tc.is_hidden || tc.isHidden),
-            weight: tc.weight !== undefined ? Number(tc.weight) : 10,
-          }));
+          const directSample = Array.isArray(problem.sample_test_cases)
+            ? problem.sample_test_cases
+            : Array.isArray((problem as any).sampleTestCases)
+            ? (problem as any).sampleTestCases
+            : [];
+
+          const directHidden = Array.isArray(problem.hidden_test_cases)
+            ? problem.hidden_test_cases
+            : Array.isArray((problem as any).hiddenTestCases)
+            ? (problem as any).hiddenTestCases
+            : [];
+
+          const extraStarter = typeof (problem as any).starter_code === "object" && (problem as any).starter_code !== null ? (problem as any).starter_code : {};
+          const starterHidden = Array.isArray(extraStarter.hidden_test_cases)
+            ? extraStarter.hidden_test_cases
+            : Array.isArray(extraStarter.hiddenTestCases)
+            ? extraStarter.hiddenTestCases
+            : [];
+
+          const seenTcKeys = new Set(rawTestCases.map((tc: any) => `${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}`));
+
+          if (rawTestCases.length === 0 && directSample.length > 0) {
+            directSample.forEach((tc: any) => {
+              rawTestCases.push({ ...tc, is_hidden: false });
+              seenTcKeys.add(`${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}`);
+            });
+          }
+
+          const allHiddenSources = [...directHidden, ...starterHidden];
+          allHiddenSources.forEach((tc: any, hIdx: number) => {
+            const key = `${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}`;
+            if (!seenTcKeys.has(key)) {
+              seenTcKeys.add(key);
+              rawTestCases.push({
+                ...tc,
+                id: tc.id || `tc_hid_${hIdx + 1}`,
+                is_hidden: true,
+                isHidden: true,
+              });
+            } else {
+              const existing = rawTestCases.find((e: any) => `${String(e.input ?? "")}:::${String(e.expected_output ?? e.expectedOutput ?? e.output ?? "")}` === key);
+              if (existing) {
+                existing.is_hidden = true;
+                existing.isHidden = true;
+              }
+            }
+          });
+
+          const allTestCases = rawTestCases.map((tc: any, idx: number) => {
+            const isHidden = isTcHidden(tc);
+            return {
+              id: tc.id || `tc_${idx + 1}`,
+              name: tc.name || (isHidden ? `Hidden Case ${idx + 1}` : `Test Case ${idx + 1}`),
+              input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
+              expected_output: tc.expected_output !== undefined && tc.expected_output !== null
+                ? String(tc.expected_output)
+                : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
+                  ? String(tc.expectedOutput)
+                  : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
+              is_hidden: isHidden,
+              weight: tc.weight !== undefined ? Number(tc.weight) : (isHidden ? 20 : 10),
+            };
+          });
 
           const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
           const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
 
           const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
-          const extraStarter = typeof (problem as any).starter_code === "object" && (problem as any).starter_code !== null ? (problem as any).starter_code : {};
           const starterCodePayload = {
             ...extraStarter,
             scope: problemScope,
@@ -325,8 +425,11 @@ export async function POST(request: NextRequest) {
             acceptance_rate: problem.acceptance_rate || undefined,
             problem_number: (problem as any).problem_number ? Number((problem as any).problem_number) : undefined,
             test_cases: allTestCases,
+            testCases: allTestCases,
             sample_test_cases: sampleTestCases,
+            sampleTestCases: sampleTestCases,
             hidden_test_cases: hiddenTestCases,
+            hiddenTestCases: hiddenTestCases,
             // SQL specific properties
             sql_engine: (problem as any).sql_engine || extraStarter.sql_engine || undefined,
             schema_sql: (problem as any).schema_sql || extraStarter.schema_sql || undefined,
@@ -392,15 +495,22 @@ export async function POST(request: NextRequest) {
           }
 
           if (savedProblem && savedProblem.id && allTestCases.length > 0) {
-            await supabase.from("test_cases").delete().eq("problem_id", savedProblem.id);
-            const tcRows = allTestCases.map((tc: any, idx: number) => ({
-              problem_id: savedProblem.id,
-              input: tc.input || "",
-              expected_output: tc.expected_output || "",
-              is_hidden: !!tc.is_hidden,
-              order_index: idx,
-            }));
-            await supabase.from("test_cases").insert(tcRows);
+            try {
+              await supabase.from("test_cases").delete().eq("problem_id", savedProblem.id);
+              const tcRows = allTestCases.map((tc: any, idx: number) => ({
+                problem_id: savedProblem.id,
+                input: tc.input || "",
+                expected_output: tc.expected_output || "",
+                is_hidden: Boolean(tc.is_hidden),
+                order_index: idx,
+              }));
+              const { error: tcErr } = await supabase.from("test_cases").insert(tcRows);
+              if (tcErr) {
+                console.warn("[Admin Coding] Supabase test_cases insert warning:", tcErr);
+              }
+            } catch (tcEx) {
+              console.warn("[Admin Coding] Error syncing test_cases table:", tcEx);
+            }
           }
 
           // Single item notification only
