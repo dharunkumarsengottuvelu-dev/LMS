@@ -563,17 +563,6 @@ export function SqlProblemCreator({
       {!hideHeader && (
         <PageHeader
           title={initialProblem?.id ? `Edit SQL Question: ${title || initialProblem.title}` : "SQL Question Builder"}
-          badge={
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                questionStatus === "published"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
-                  : "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
-              }`}
-            >
-              {initialProblem?.id ? questionStatus : `New ${questionStatus}`}
-            </span>
-          }
           backAction={
             onCancel
               ? {
@@ -584,19 +573,6 @@ export function SqlProblemCreator({
           }
           actions={
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-              {onChangeQuestionType && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onChangeQuestionType("programming")}
-                  className="h-9 px-3 sm:px-3.5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs cursor-pointer gap-1.5"
-                >
-                  <Code2 className="h-4 w-4 text-blue-600 shrink-0" />
-                  <span className="hidden sm:inline">Switch to Programming Question</span>
-                  <span className="sm:hidden">Switch to Code</span>
-                </Button>
-              )}
               {onCancel && (
                 <Button
                   type="button"

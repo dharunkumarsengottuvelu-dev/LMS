@@ -320,7 +320,17 @@ export function extractSampleTestCases(problem: any): NormalizedTestCase[] {
       : [];
 
   if (directSample.length > 0) {
-    return directSample.map((tc: any, idx: number) => ({
+    const hasHiddenAnywhere =
+      (Array.isArray(problem.hidden_test_cases) && problem.hidden_test_cases.length > 0) ||
+      (Array.isArray(problem.hiddenTestCases) && problem.hiddenTestCases.length > 0) ||
+      (Array.isArray(starter.hidden_test_cases) && starter.hidden_test_cases.length > 0) ||
+      (Array.isArray(problem.test_cases) && problem.test_cases.some((tc: any) => isTestCaseHidden(tc)));
+
+    const effectiveDirect = (!hasHiddenAnywhere && directSample.length > 5)
+      ? directSample.slice(0, 5)
+      : directSample;
+
+    return effectiveDirect.map((tc: any, idx: number) => ({
       ...normalizeTestCase(tc, idx),
       is_hidden: false,
     }));
@@ -338,7 +348,16 @@ export function extractSampleTestCases(problem: any): NormalizedTestCase[] {
 
   const publicCases = allCases.filter((tc: any) => !isTestCaseHidden(tc));
   if (publicCases.length > 0) {
-    return publicCases.map((tc: any, idx: number) => ({
+    const explicitHiddenExists =
+      allCases.some((tc: any) => isTestCaseHidden(tc)) ||
+      (Array.isArray(problem.hidden_test_cases) && problem.hidden_test_cases.length > 0) ||
+      (Array.isArray(starter.hidden_test_cases) && starter.hidden_test_cases.length > 0);
+
+    const effectivePublicCases = (!explicitHiddenExists && publicCases.length > 5)
+      ? publicCases.slice(0, 5)
+      : publicCases;
+
+    return effectivePublicCases.map((tc: any, idx: number) => ({
       ...normalizeTestCase(tc, idx),
       is_hidden: false,
     }));
@@ -447,6 +466,26 @@ export function extractHiddenTestCases(problem: any): NormalizedTestCase[] {
       });
     }
   });
+
+  // 3. Fallback: If no explicit hidden cases found, but cases source has > 5 cases,
+  // partition cases >= 5 as hidden test cases!
+  if (collected.length === 0) {
+    const fallbackSources = [
+      problem.sample_test_cases,
+      problem.sampleTestCases,
+      ...allCasesSources,
+    ];
+    for (const src of fallbackSources) {
+      if (Array.isArray(src) && src.length > 5 && collected.length === 0) {
+        src.forEach((tc, idx) => {
+          if (idx >= 5) {
+            addCase(tc, collected.length + idx);
+          }
+        });
+        if (collected.length > 0) break;
+      }
+    }
+  }
 
   return collected;
 }

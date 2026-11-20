@@ -129,9 +129,16 @@ export async function GET(request: NextRequest) {
           sol = {};
         }
       }
+      const extraStarter = typeof extra.starter_code === "object" && extra.starter_code !== null ? extra.starter_code : {};
       const dbTc = testCasesByProblem.get(p.id) || [];
       const sampleTc = Array.isArray(extra.sample_test_cases) ? extra.sample_test_cases : (Array.isArray(extra.sampleTestCases) ? extra.sampleTestCases : []);
-      const hiddenTc = Array.isArray(extra.hidden_test_cases) ? extra.hidden_test_cases : (Array.isArray(extra.hiddenTestCases) ? extra.hiddenTestCases : []);
+      const hiddenTc = Array.isArray(extra.hidden_test_cases)
+        ? extra.hidden_test_cases
+        : (Array.isArray(extra.hiddenTestCases)
+          ? extra.hiddenTestCases
+          : (Array.isArray(extraStarter.hidden_test_cases)
+            ? extraStarter.hidden_test_cases
+            : (Array.isArray(extraStarter.hiddenTestCases) ? extraStarter.hiddenTestCases : [])));
       const directTc = Array.isArray(extra.test_cases) ? extra.test_cases : (Array.isArray(extra.testCases) ? extra.testCases : []);
 
       let tcList: any[] = [];
@@ -163,6 +170,18 @@ export async function GET(request: NextRequest) {
         ];
       } else if (directTc.length > 0) {
         tcList = directTc;
+      }
+
+      // If tcList has > 5 cases and zero marked hidden, treat cases >= 5 as hidden
+      const currentHiddenCount = tcList.filter((tc: any) => tc.is_hidden || tc.isHidden).length;
+      if (currentHiddenCount === 0 && tcList.length > 5) {
+        tcList.forEach((tc: any, idx: number) => {
+          if (idx >= 5) {
+            tc.is_hidden = true;
+            tc.isHidden = true;
+            if (tc.name) tc.name = tc.name.replace(/Test Case/i, "Hidden Case");
+          }
+        });
       }
 
       const rawAllowed = extra.allowed_languages || extra.allowedLanguages;
@@ -346,18 +365,19 @@ export async function POST(request: NextRequest) {
             ? extraStarter.hiddenTestCases
             : [];
 
-          const seenTcKeys = new Set(rawTestCases.map((tc: any) => `${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}`));
+          const seenTcKeys = new Set(rawTestCases.map((tc: any) => `${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}:::${isTcHidden(tc)}`));
 
           if (rawTestCases.length === 0 && directSample.length > 0) {
             directSample.forEach((tc: any) => {
-              rawTestCases.push({ ...tc, is_hidden: false });
-              seenTcKeys.add(`${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}`);
+              const tcHidden = isTcHidden(tc);
+              rawTestCases.push({ ...tc, is_hidden: tcHidden });
+              seenTcKeys.add(`${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}:::${tcHidden}`);
             });
           }
 
           const allHiddenSources = [...directHidden, ...starterHidden];
           allHiddenSources.forEach((tc: any, hIdx: number) => {
-            const key = `${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}`;
+            const key = `${String(tc.input ?? "")}:::${String(tc.expected_output ?? tc.expectedOutput ?? tc.output ?? "")}:::true`;
             if (!seenTcKeys.has(key)) {
               seenTcKeys.add(key);
               rawTestCases.push({
@@ -367,7 +387,7 @@ export async function POST(request: NextRequest) {
                 isHidden: true,
               });
             } else {
-              const existing = rawTestCases.find((e: any) => `${String(e.input ?? "")}:::${String(e.expected_output ?? e.expectedOutput ?? e.output ?? "")}` === key);
+              const existing = rawTestCases.find((e: any) => `${String(e.input ?? "")}:::${String(e.expected_output ?? e.expectedOutput ?? e.output ?? "")}:::${isTcHidden(e)}` === key);
               if (existing) {
                 existing.is_hidden = true;
                 existing.isHidden = true;
@@ -390,6 +410,20 @@ export async function POST(request: NextRequest) {
               weight: tc.weight !== undefined ? Number(tc.weight) : (isHidden ? 20 : 10),
             };
           });
+
+          // Fallback: If author provided > 5 test cases and none are explicitly marked as hidden,
+          // treat test cases >= 5 as hidden test cases!
+          const explicitHiddenCount = allTestCases.filter((tc: any) => tc.is_hidden).length;
+          if (explicitHiddenCount === 0 && allTestCases.length > 5) {
+            allTestCases.forEach((tc: any, idx: number) => {
+              if (idx >= 5) {
+                tc.is_hidden = true;
+                tc.isHidden = true;
+                tc.name = tc.name.replace(/Test Case/i, "Hidden Case");
+                tc.weight = 20;
+              }
+            });
+          }
 
           const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
           const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);

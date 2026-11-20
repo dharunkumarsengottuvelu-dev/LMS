@@ -523,8 +523,12 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                   const testCases = prob.test_cases || (prob as any).testCases || [];
                   const isTcHidden = (tc: any) => Boolean(tc?.is_hidden || tc?.isHidden || String(tc?.is_hidden).toLowerCase() === "true" || String(tc?.type).toLowerCase() === "hidden");
                   const directHidden = (prob as any).hidden_test_cases || (prob as any).hiddenTestCases || (prob.starter_code as any)?.hidden_test_cases || [];
-                  const publicCount = testCases.filter((tc) => !isTcHidden(tc)).length || (prob as any).sample_test_cases?.length || 0;
-                  const hiddenCount = testCases.filter(isTcHidden).length || (Array.isArray(directHidden) ? directHidden.length : 0);
+                  let publicCount = testCases.filter((tc) => !isTcHidden(tc)).length || (prob as any).sample_test_cases?.length || 0;
+                  let hiddenCount = testCases.filter(isTcHidden).length || (Array.isArray(directHidden) ? directHidden.length : 0);
+                  if (hiddenCount === 0 && publicCount > 5) {
+                    hiddenCount = publicCount - 5;
+                    publicCount = 5;
+                  }
                   const isSql = prob.category === "Databases" || prob.category === "SQL" || (prob as any).type === "SQL" || !!prob.sql_engine;
                   const rawType = (prob as any).type || prob.category || (isSql ? "SQL" : "Algorithm");
                   const isSelected = selectedProblemIds.includes(prob.id);

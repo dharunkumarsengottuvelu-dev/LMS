@@ -420,8 +420,8 @@ export function BulkUploadComponent({
         default_language: ["defaultlanguage", "default_language", "primarylanguage", "initiallanguage"],
       };
 
-      // Dynamically add aliases for public and hidden test cases 1 through 20
-      for (let i = 1; i <= 20; i++) {
+      // Dynamically add aliases for public and hidden test cases 1 through 50
+      for (let i = 1; i <= 50; i++) {
         const inpKey = i === 1 ? "testcase_1_input" : `testcase_${i}_input`;
         const outKey = i === 1 ? "testcase_1_output" : `testcase_${i}_output`;
         HEADER_ALIASES[inpKey] = Array.from(new Set([
@@ -437,6 +437,16 @@ export function BulkUploadComponent({
           `test_case_${i}_input`,
           `case_${i}_input`,
           `case${i}input`,
+          `case${i}`,
+          `test${i}input`,
+          `sample${i}input`,
+          `sample_input_${i}`,
+          `sampleinput${i}`,
+          `example${i}input`,
+          `example_input_${i}`,
+          `exampleinput${i}`,
+          `public_testcase_${i}_input`,
+          `publictestcase${i}input`,
         ]));
         HEADER_ALIASES[outKey] = Array.from(new Set([
           ...(HEADER_ALIASES[outKey] || []),
@@ -458,6 +468,16 @@ export function BulkUploadComponent({
           `case${i}output`,
           `case_${i}_expected_output`,
           `case${i}expectedoutput`,
+          `case${i}expected`,
+          `test${i}output`,
+          `sample${i}output`,
+          `sample_output_${i}`,
+          `sampleoutput${i}`,
+          `example${i}output`,
+          `example_output_${i}`,
+          `exampleoutput${i}`,
+          `public_testcase_${i}_output`,
+          `publictestcase${i}output`,
         ]));
 
         const hInpKey = i === 1 ? "hidden_testcase_input" : `hidden_testcase_${i}_input`;
@@ -470,27 +490,43 @@ export function BulkUploadComponent({
           `hidden${i}input`,
           `h${i}input`,
           `h${i}in`,
+          `htc${i}input`,
+          `htc${i}in`,
+          `htc${i}`,
           `hidden_testcase_${i}_input`,
           `hidden_test_case_${i}_input`,
           `hidden_input_${i}`,
           `hiddencase${i}input`,
-          `htc${i}input`,
+          `hiddencase${i}`,
+          `hiddentest${i}input`,
+          `private_testcase_${i}_input`,
+          `privatetestcase${i}input`,
+          `private_input_${i}`,
+          `privateinput${i}`,
+          `private${i}input`,
+          `privatecase${i}input`,
           ...(i === 1 ? [
             "hiddentestcaseinput", "hiddeninput", "h1input", "hiddentestcase",
             "hidden_testcase_input", "hidden_test_case_input", "hidden_input",
-            "hidden_testcase_1_input", "hidden_test_case_1_input", "hidden_input_1"
+            "hidden_testcase_1_input", "hidden_test_case_1_input", "hidden_input_1",
+            "privatetestcaseinput", "privateinput", "private_input"
           ] : [])
         ]));
         HEADER_ALIASES[hOutKey] = Array.from(new Set([
           ...(HEADER_ALIASES[hOutKey] || []),
           `hiddentestcase${i}output`,
           `hiddentestcase${i}expectedoutput`,
+          `hiddentestcase${i}expected`,
           `hiddenoutput${i}`,
           `hiddenexpectedoutput${i}`,
           `hidden${i}output`,
           `h${i}output`,
           `h${i}out`,
           `h${i}expectedoutput`,
+          `h${i}expected`,
+          `htc${i}output`,
+          `htc${i}expectedoutput`,
+          `htc${i}expected`,
           `hidden_testcase_${i}_output`,
           `hidden_test_case_${i}_output`,
           `hidden_testcase_${i}_expected_output`,
@@ -499,12 +535,18 @@ export function BulkUploadComponent({
           `hidden_expected_output_${i}`,
           `hiddencase${i}output`,
           `hiddencase${i}expectedoutput`,
-          `htc${i}output`,
-          `htc${i}expectedoutput`,
+          `hiddentest${i}output`,
+          `private_testcase_${i}_output`,
+          `privatetestcase${i}output`,
+          `private_output_${i}`,
+          `privateoutput${i}`,
+          `private${i}output`,
+          `privatecase${i}output`,
           ...(i === 1 ? [
             "hiddentestcaseoutput", "hiddentestcaseexpectedoutput", "hiddenoutput", "hiddenexpectedoutput", "h1output",
             "hidden_testcase_output", "hidden_test_case_output", "hidden_output", "hidden_expected_output",
-            "hidden_testcase_1_output", "hidden_test_case_1_output", "hidden_output_1", "hidden_testcase_1_expected_output"
+            "hidden_testcase_1_output", "hidden_test_case_1_output", "hidden_output_1", "hidden_testcase_1_expected_output",
+            "privatetestcaseoutput", "privateoutput", "private_output"
           ] : [])
         ]));
       }
@@ -516,6 +558,26 @@ export function BulkUploadComponent({
         const aliases = HEADER_ALIASES[col.key] || [];
         aliases.forEach((alias) => {
           columnMapping[cleanHeader(alias)] = col;
+        });
+      });
+
+      // Ensure all HEADER_ALIASES are also known in columnMapping so even unlisted template columns (like testcase 6..50 or hidden testcases) are mapped to canonical keys!
+      Object.entries(HEADER_ALIASES).forEach(([canonKey, aliases]) => {
+        const existingCol = config.columns.find((c) => c.key === canonKey);
+        const colDef: ColumnDefinition = existingCol || {
+          key: canonKey,
+          label: canonKey,
+          type: "string",
+          required: false,
+          description: canonKey,
+        };
+        if (!columnMapping[cleanHeader(canonKey)]) {
+          columnMapping[cleanHeader(canonKey)] = colDef;
+        }
+        aliases.forEach((alias) => {
+          if (!columnMapping[cleanHeader(alias)]) {
+            columnMapping[cleanHeader(alias)] = colDef;
+          }
         });
       });
 
@@ -726,10 +788,11 @@ export function BulkUploadComponent({
 
           // 5. Test cases validation (at least 1 public and 1 hidden testcase)
           let hasPublic = false;
-          for (let pi = 1; pi <= 20; pi++) {
+          let publicCount = 0;
+          for (let pi = 1; pi <= 50; pi++) {
             if (resolvePublicTestCase(mappedRow, pi)) {
               hasPublic = true;
-              break;
+              publicCount++;
             }
           }
           if (!hasPublic) {
@@ -740,13 +803,15 @@ export function BulkUploadComponent({
               mappedRow.testcase_1_input ||
               mappedRow.testcase_2_output
             );
+            if (hasPublic) publicCount = 1;
           }
 
           let hasHidden = false;
-          for (let hi = 1; hi <= 20; hi++) {
+          let hiddenCount = 0;
+          for (let hi = 1; hi <= 50; hi++) {
             if (resolveHiddenTestCase(mappedRow, hi)) {
               hasHidden = true;
-              break;
+              hiddenCount++;
             }
           }
           if (!hasHidden) {
@@ -760,6 +825,11 @@ export function BulkUploadComponent({
               mappedRow.hiddenTestCases ||
               Object.keys(mappedRow).some((k) => k.toLowerCase().includes("hidden") && mappedRow[k] && String(mappedRow[k]).trim() !== "")
             );
+          }
+
+          // If author provided > 5 test cases and 0 explicit hidden cases, cases >= 5 are treated as hidden test cases!
+          if (!hasHidden && publicCount > 5) {
+            hasHidden = true;
           }
 
           if (!hasPublic) {
@@ -778,13 +848,15 @@ export function BulkUploadComponent({
             });
           }
 
-          // Check for input with missing output
-          for (let tc = 1; tc <= 5; tc++) {
-            const inVal = mappedRow[`testcase_${tc}_input`];
-            const outVal = mappedRow[`testcase_${tc}_output`];
+          // Check for input with missing output (1 through 50)
+          for (let tc = 1; tc <= 50; tc++) {
+            const inKey = tc === 1 ? "testcase_1_input" : `testcase_${tc}_input`;
+            const outKey = tc === 1 ? "testcase_1_output" : `testcase_${tc}_output`;
+            const inVal = mappedRow[inKey];
+            const outVal = mappedRow[outKey];
             if (inVal !== undefined && inVal !== null && String(inVal).trim() !== "" && (outVal === undefined || outVal === null || String(outVal).trim() === "")) {
               errors.push({
-                fieldKey: `testcase_${tc}_output`,
+                fieldKey: outKey,
                 fieldLabel: `Test Case ${tc} Output`,
                 message: `Row #${rowNumber} – Invalid Expected Output format for Test Case ${tc}.`,
               });

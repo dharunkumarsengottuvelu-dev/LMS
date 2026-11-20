@@ -159,12 +159,6 @@ export default function StudentPracticesPage() {
                   className="group flex flex-col justify-between overflow-hidden hover:border-blue-500/60 hover:shadow-card transition-all duration-200 bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 shadow-2xs rounded-xl"
                 >
                   <CardHeader className="p-5 pb-2.5 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
-                        Practice Track
-                      </span>
-                    </div>
-
                     <CardTitle className="text-base font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {track.name || track.title}
                     </CardTitle>

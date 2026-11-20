@@ -416,11 +416,25 @@ export async function GET(
                   if (!cq || typeof cq !== "object") return cq;
 
                   // Extract hidden cases from all possible locations
-                  const rawHidden = (Array.isArray(cq.hidden_test_cases) && cq.hidden_test_cases.length > 0)
+                  let rawHidden = (Array.isArray(cq.hidden_test_cases) && cq.hidden_test_cases.length > 0)
                     ? cq.hidden_test_cases
                     : (Array.isArray(cq.hiddenTestCases) && cq.hiddenTestCases.length > 0)
                     ? cq.hiddenTestCases
                     : (Array.isArray(cq.test_cases) ? cq.test_cases.filter((tc: any) => tc.is_hidden || tc.isHidden) : []);
+
+                  // Public / sample test cases
+                  let rawPublic = (Array.isArray(cq.sample_test_cases) && cq.sample_test_cases.length > 0)
+                    ? cq.sample_test_cases
+                    : (Array.isArray(cq.sampleTestCases) && cq.sampleTestCases.length > 0)
+                    ? cq.sampleTestCases
+                    : (Array.isArray(cq.test_cases) ? cq.test_cases.filter((tc: any) => !tc.is_hidden && !tc.isHidden) : []);
+
+                  // Fallback: If author provided > 5 test cases and 0 explicit hidden test cases,
+                  // partition cases >= 5 as hidden test cases!
+                  if (rawHidden.length === 0 && rawPublic.length > 5) {
+                    rawHidden = rawPublic.slice(5);
+                    rawPublic = rawPublic.slice(0, 5);
+                  }
 
                   // Mask hidden test cases: inputs & expected outputs are NOT leaked to the client
                   const safeHidden = rawHidden.map((tc: any, hIdx: number) => ({
@@ -434,12 +448,7 @@ export async function GET(
                     isHidden: true,
                   }));
 
-                  // Public / sample test cases
-                  const safePublic = (Array.isArray(cq.sample_test_cases) && cq.sample_test_cases.length > 0)
-                    ? cq.sample_test_cases
-                    : (Array.isArray(cq.sampleTestCases) && cq.sampleTestCases.length > 0)
-                    ? cq.sampleTestCases
-                    : (Array.isArray(cq.test_cases) ? cq.test_cases.filter((tc: any) => !tc.is_hidden && !tc.isHidden) : []);
+                  const safePublic = rawPublic;
 
                   const safeTestCases = [
                     ...safePublic.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),

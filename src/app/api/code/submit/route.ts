@@ -226,6 +226,15 @@ export async function POST(request: NextRequest) {
       }
 
       if (dbProblemCases && dbProblemCases.length > 0) {
+        const hasHidden = dbProblemCases.some((tc: any) => tc.is_hidden || tc.isHidden);
+        if (!hasHidden && dbProblemCases.length > 5) {
+          dbProblemCases.forEach((tc: any, idx: number) => {
+            if (idx >= 5) {
+              tc.is_hidden = true;
+              tc.isHidden = true;
+            }
+          });
+        }
         testCasesToRun = dbProblemCases;
       }
     }

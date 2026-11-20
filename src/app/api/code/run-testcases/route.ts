@@ -69,9 +69,9 @@ export async function POST(request: NextRequest) {
         .order("order_index", { ascending: true });
 
       if (dbTc && dbTc.length > 0) {
-        testCases = includeHidden ? dbTc : dbTc.filter(tc => !tc.is_hidden);
-        // If includeHidden is requested but dbTc has no hidden cases, check if hidden cases exist in starter_code
-        if (includeHidden && !dbTc.some(tc => tc.is_hidden)) {
+        let allResolvedCases: TestCase[] = [...dbTc];
+        const hasDbHidden = dbTc.some((tc) => tc.is_hidden || (tc as any).isHidden);
+        if (!hasDbHidden) {
           const { data: dbProblem } = await supabase
             .from("coding_problems")
             .select("test_cases, sample_test_cases, hidden_test_cases, starter_code")
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
             const starter = typeof dbProblem.starter_code === "object" && dbProblem.starter_code !== null ? dbProblem.starter_code : {};
             const hiddenFromStarter = (dbProblem.hidden_test_cases || starter.hidden_test_cases || []) as TestCase[];
             if (Array.isArray(hiddenFromStarter) && hiddenFromStarter.length > 0) {
-              testCases = [...dbTc, ...hiddenFromStarter.map((tc: any, hIdx: number) => ({
+              allResolvedCases = [...dbTc, ...hiddenFromStarter.map((tc: any, hIdx: number) => ({
                 id: tc.id || `tc_hid_${hIdx + 1}`,
                 input: tc.input || "",
                 expected_output: tc.expected_output || tc.expectedOutput || "",
@@ -90,8 +90,18 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        if (testCases.length === 0 && dbTc.length > 0) {
-          testCases = dbTc;
+        // Fallback: If still no hidden cases and total cases > 5, partition >= 5 as hidden
+        const finalHasHidden = allResolvedCases.some((tc) => tc.is_hidden || (tc as any).isHidden);
+        if (!finalHasHidden && allResolvedCases.length > 5) {
+          allResolvedCases.forEach((tc, idx) => {
+            if (idx >= 5) {
+              tc.is_hidden = true;
+            }
+          });
+        }
+        testCases = includeHidden ? allResolvedCases : allResolvedCases.filter((tc) => !tc.is_hidden && !(tc as any).isHidden);
+        if (testCases.length === 0 && allResolvedCases.length > 0) {
+          testCases = allResolvedCases;
         }
       } else {
         const { data: dbProblem } = await supabase
@@ -117,7 +127,16 @@ export async function POST(request: NextRequest) {
             allDbCases = directCases as TestCase[];
           }
 
-          testCases = includeHidden ? allDbCases : allDbCases.filter(tc => !tc.is_hidden && !(tc as any).isHidden);
+          const hasDbHidden = allDbCases.some((tc) => tc.is_hidden || (tc as any).isHidden);
+          if (!hasDbHidden && allDbCases.length > 5) {
+            allDbCases.forEach((tc, idx) => {
+              if (idx >= 5) {
+                tc.is_hidden = true;
+              }
+            });
+          }
+
+          testCases = includeHidden ? allDbCases : allDbCases.filter((tc) => !tc.is_hidden && !(tc as any).isHidden);
           if (testCases.length === 0 && allDbCases.length > 0) {
             testCases = allDbCases;
           }
@@ -164,12 +183,27 @@ export async function POST(request: NextRequest) {
                 const sample = Array.isArray(cq.sample_test_cases) ? cq.sample_test_cases : (Array.isArray(cq.sampleTestCases) ? cq.sampleTestCases : (Array.isArray(starter.sample_test_cases) ? starter.sample_test_cases : []));
                 const hidden = Array.isArray(cq.hidden_test_cases) ? cq.hidden_test_cases : (Array.isArray(cq.hiddenTestCases) ? cq.hiddenTestCases : (Array.isArray(starter.hidden_test_cases) ? starter.hidden_test_cases : []));
 
-                const allCases = direct.length > 0
-                  ? direct
+                let allCases = direct.length > 0
+                  ? [...direct]
                   : [
                       ...sample.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),
                       ...hidden.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true })),
                     ];
+
+                // Merge hidden from starter or cq if not present
+                const hasHidden = allCases.some((tc: any) => tc.is_hidden || tc.isHidden);
+                if (!hasHidden) {
+                  if (hidden.length > 0) {
+                    allCases = [...allCases, ...hidden.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true }))];
+                  } else if (allCases.length > 5) {
+                    allCases.forEach((tc: any, idx: number) => {
+                      if (idx >= 5) {
+                        tc.is_hidden = true;
+                        tc.isHidden = true;
+                      }
+                    });
+                  }
+                }
 
                 testCases = includeHidden
                   ? allCases

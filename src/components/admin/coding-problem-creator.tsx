@@ -500,48 +500,76 @@ export function CodingProblemCreator({
 
   // 7 & 8. TEST CASES (PUBLIC & HIDDEN)
   const [testCases, setTestCases] = useState<TestCase[]>(() => {
-    const existingRawCases =
-      (Array.isArray(existing.test_cases) && existing.test_cases.length > 0 ? existing.test_cases : null) ||
-      (Array.isArray((existing as any).testCases) && (existing as any).testCases.length > 0 ? (existing as any).testCases : null) ||
-      (Array.isArray((existing as any).sample_test_cases) && (existing as any).sample_test_cases.length > 0 ? (existing as any).sample_test_cases : null) ||
-      (Array.isArray((existing as any).sampleTestCases) && (existing as any).sampleTestCases.length > 0 ? (existing as any).sampleTestCases : null) ||
-      (Array.isArray((existing as any).starter_code?.test_cases) && (existing as any).starter_code.test_cases.length > 0 ? (existing as any).starter_code.test_cases : null) ||
-      (Array.isArray((existing as any).starter_code?.sample_test_cases) && (existing as any).starter_code.sample_test_cases.length > 0 ? (existing as any).starter_code.sample_test_cases : null);
+    const list: TestCase[] = [];
+    const seen = new Set<string>();
 
-    if (existingRawCases && existingRawCases.length > 0) {
-      return existingRawCases.map((tc: any, idx: number) => ({
-        id: tc.id || `tc-${idx + 1}`,
-        name: tc.name || `Test Case ${idx + 1}`,
-        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
-        expected_output: tc.expected_output !== undefined && tc.expected_output !== null
-          ? String(tc.expected_output)
-          : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
-            ? String(tc.expectedOutput)
-            : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
-        is_hidden: Boolean(tc.is_hidden || tc.isHidden || tc.hidden),
-        weight: tc.weight !== undefined ? Number(tc.weight) : 10,
+    const addTestCase = (tc: any, defaultHidden = false) => {
+      if (!tc) return;
+      const inp = tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : "");
+      const out = tc.expected_output !== undefined && tc.expected_output !== null
+        ? String(tc.expected_output)
+        : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
+          ? String(tc.expectedOutput)
+          : (tc.output !== undefined && tc.output !== null ? String(tc.output) : ""));
+      const isHidden = Boolean(tc.is_hidden || tc.isHidden || tc.hidden || defaultHidden);
+      const dedupeKey = `${inp}:::${out}:::${isHidden}`;
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+
+      list.push({
+        id: tc.id || `tc-${list.length + 1}`,
+        name: tc.name || (isHidden ? `Hidden Case ${list.length + 1}` : `Test Case ${list.length + 1}`),
+        input: inp,
+        expected_output: out,
+        is_hidden: isHidden,
+        weight: tc.weight !== undefined ? Number(tc.weight) : (isHidden ? 20 : 10),
         is_enabled: tc.is_enabled !== false,
-      }));
+      });
+    };
+
+    // 1. Direct test_cases / testCases
+    const directCases = Array.isArray(existing.test_cases) && existing.test_cases.length > 0
+      ? existing.test_cases
+      : (Array.isArray((existing as any).testCases) && (existing as any).testCases.length > 0 ? (existing as any).testCases : []);
+    directCases.forEach((tc: any) => addTestCase(tc));
+
+    // 2. Sample test cases
+    const sampleCases = Array.isArray((existing as any).sample_test_cases) && (existing as any).sample_test_cases.length > 0
+      ? (existing as any).sample_test_cases
+      : (Array.isArray((existing as any).sampleTestCases) && (existing as any).sampleTestCases.length > 0 ? (existing as any).sampleTestCases : []);
+    sampleCases.forEach((tc: any) => addTestCase(tc, false));
+
+    // 3. Hidden test cases
+    const hiddenCases = Array.isArray((existing as any).hidden_test_cases) && (existing as any).hidden_test_cases.length > 0
+      ? (existing as any).hidden_test_cases
+      : (Array.isArray((existing as any).hiddenTestCases) && (existing as any).hiddenTestCases.length > 0 ? (existing as any).hiddenTestCases : []);
+    hiddenCases.forEach((tc: any) => addTestCase(tc, true));
+
+    // 4. Starter code test cases (starter_code.test_cases / hidden_test_cases)
+    const starterExtra = typeof (existing as any).starter_code === "object" && (existing as any).starter_code !== null ? (existing as any).starter_code : {};
+    if (Array.isArray(starterExtra.test_cases)) starterExtra.test_cases.forEach((tc: any) => addTestCase(tc));
+    if (Array.isArray(starterExtra.sample_test_cases)) starterExtra.sample_test_cases.forEach((tc: any) => addTestCase(tc, false));
+    if (Array.isArray(starterExtra.hidden_test_cases)) starterExtra.hidden_test_cases.forEach((tc: any) => addTestCase(tc, true));
+    if (Array.isArray(starterExtra.hiddenTestCases)) starterExtra.hiddenTestCases.forEach((tc: any) => addTestCase(tc, true));
+
+    // 5. Initial props passed to component
+    if (Array.isArray(initialPublicTestCases)) initialPublicTestCases.forEach((tc: any) => addTestCase(tc, false));
+    if (Array.isArray(initialHiddenTestCases)) initialHiddenTestCases.forEach((tc: any) => addTestCase(tc, true));
+
+    // 6. Fallback partition: if author provided > 5 test cases and none are hidden, mark cases >= 5 as hidden
+    const hasHidden = list.some((tc) => tc.is_hidden);
+    if (!hasHidden && list.length > 5) {
+      list.forEach((tc, idx) => {
+        if (idx >= 5) {
+          tc.is_hidden = true;
+          (tc as any).isHidden = true;
+          tc.name = (tc.name || `Hidden Case ${idx + 1}`).replace(/Test Case/i, "Hidden Case");
+          tc.weight = 20;
+        }
+      });
     }
 
-    const combined: TestCase[] = [];
-    if (initialPublicTestCases && initialPublicTestCases.length > 0) {
-      combined.push(...initialPublicTestCases.map((tc) => ({
-        ...tc,
-        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : "",
-        expected_output: tc.expected_output !== undefined && tc.expected_output !== null ? String(tc.expected_output) : ((tc as any).expectedOutput || ""),
-        is_hidden: false,
-      })));
-    }
-    if (initialHiddenTestCases && initialHiddenTestCases.length > 0) {
-      combined.push(...initialHiddenTestCases.map((tc) => ({
-        ...tc,
-        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : "",
-        expected_output: tc.expected_output !== undefined && tc.expected_output !== null ? String(tc.expected_output) : ((tc as any).expectedOutput || ""),
-        is_hidden: true,
-      })));
-    }
-    if (combined.length > 0) return combined;
+    if (list.length > 0) return list;
 
     return [
       {
@@ -1382,15 +1410,6 @@ export function CodingProblemCreator({
             <h1 className="text-lg font-bold tracking-tight text-slate-900">
               {existing.id ? `Edit Problem: ${title || existing.title}` : "New Coding Problem Creator"}
             </h1>
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                status === "published"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-slate-100 text-slate-600 border border-slate-200"
-              }`}
-            >
-              {existing.id ? status : `New ${status}`}
-            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Author algorithmic questions with exact 1:1 schema mapping to the student coding platform.
@@ -1398,18 +1417,6 @@ export function CodingProblemCreator({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {onChangeQuestionType && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onChangeQuestionType("sql")}
-              className="h-[40px] px-3.5 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer gap-1.5"
-            >
-              <Database className="h-4 w-4 text-emerald-600" />
-              <span>Switch to SQL Question</span>
-            </Button>
-          )}
           {existing.id ? (
             <Button
               type="button"

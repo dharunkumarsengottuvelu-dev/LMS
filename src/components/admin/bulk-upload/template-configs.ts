@@ -27,115 +27,124 @@ export interface ModuleTemplateConfig {
 }
 
 export function resolvePublicTestCase(row: Record<string, any>, i: number): { input: string; output: string } | null {
-  const inputCandidates = [
-    row[`testcase_${i}_input`],
-    row[`testcase${i}_input`],
-    row[`test_case_${i}_input`],
-    row[`test_case${i}_input`],
-    row[`tc_${i}_input`],
-    row[`tc${i}_input`],
-    row[`tc${i}input`],
-    row[`tc_${i}`],
-    row[`tc${i}`],
-    row[`input_${i}`],
-    row[`input${i}`],
-    row[`testcase_${i}`],
-    row[`testcase${i}`],
-    row[`test_case_${i}`],
-    row[`test_case${i}`],
-    row[`case_${i}_input`],
-    row[`case${i}_input`],
-    row[`case${i}input`],
+  if (!row) return null;
+
+  const directInputKeys = [
+    `testcase_${i}_input`,
+    `testcase${i}_input`,
+    `test_case_${i}_input`,
+    `test_case${i}_input`,
+    `testcase_${i}`,
+    `testcase${i}`,
+    `test_case_${i}`,
+    `test_case${i}`,
+    `tc_${i}_input`,
+    `tc${i}_input`,
+    `tc${i}input`,
+    `tc_${i}`,
+    `tc${i}`,
+    `input_${i}`,
+    `input${i}`,
+    `case_${i}_input`,
+    `case${i}_input`,
+    `case${i}input`,
+    `case_${i}`,
+    `case${i}`,
+    `sample_${i}_input`,
+    `sample${i}_input`,
+    `sample${i}input`,
+    `example_${i}_input`,
+    `example${i}_input`,
+    `example${i}input`,
     ...(i === 1 ? [
-      row.testcase_input,
-      row.testcase1input,
-      row.test_case_input,
-      row.test_case_1_input,
-      row.sample_input,
-      row.sample_input_1,
-      row.sampleInput,
-      row.sampleInput1,
-      row.tc1_input,
-      row.tc1input,
-      row.input,
-      row.input_1,
-      row.input1,
+      "testcase_input", "testcaseinput", "testcase1input", "test_case_input",
+      "test_case_1_input", "sample_input", "sample_input_1", "sampleInput",
+      "sampleInput1", "tc1_input", "tc1input", "input", "input_1", "input1",
+      "example_input", "exampleInput"
     ] : [])
   ];
 
-  const outputCandidates = [
-    row[`testcase_${i}_output`],
-    row[`testcase${i}_output`],
-    row[`test_case_${i}_output`],
-    row[`test_case${i}_output`],
-    row[`tc_${i}_output`],
-    row[`tc${i}_output`],
-    row[`tc${i}output`],
-    row[`output_${i}`],
-    row[`output${i}`],
-    row[`testcase_${i}_expected_output`],
-    row[`testcase${i}_expected_output`],
-    row[`testcase${i}expectedoutput`],
-    row[`test_case_${i}_expected_output`],
-    row[`test_case${i}_expected_output`],
-    row[`test_case${i}expectedoutput`],
-    row[`expected_output_${i}`],
-    row[`expected_output${i}`],
-    row[`expectedoutput${i}`],
-    row[`case_${i}_output`],
-    row[`case${i}_output`],
-    row[`case${i}output`],
-    row[`case_${i}_expected_output`],
-    row[`case${i}expectedoutput`],
+  const directOutputKeys = [
+    `testcase_${i}_output`,
+    `testcase${i}_output`,
+    `test_case_${i}_output`,
+    `test_case${i}_output`,
+    `testcase_${i}_expected_output`,
+    `testcase${i}_expected_output`,
+    `testcase${i}expectedoutput`,
+    `test_case_${i}_expected_output`,
+    `test_case${i}_expected_output`,
+    `test_case${i}expectedoutput`,
+    `expected_output_${i}`,
+    `expected_output${i}`,
+    `expectedoutput${i}`,
+    `output_${i}`,
+    `output${i}`,
+    `tc_${i}_output`,
+    `tc${i}_output`,
+    `tc${i}output`,
+    `tc_${i}_expected_output`,
+    `tc${i}_expected_output`,
+    `tc${i}expectedoutput`,
+    `case_${i}_output`,
+    `case${i}_output`,
+    `case${i}output`,
+    `case_${i}_expected_output`,
+    `case${i}expectedoutput`,
+    `sample_${i}_output`,
+    `sample${i}_output`,
+    `sample${i}output`,
+    `example_${i}_output`,
+    `example${i}_output`,
+    `example${i}output`,
     ...(i === 1 ? [
-      row.testcase_output,
-      row.testcase1output,
-      row.test_case_output,
-      row.test_case_1_output,
-      row.sample_output,
-      row.sample_output_1,
-      row.sampleOutput,
-      row.sampleOutput1,
-      row.tc1_output,
-      row.tc1output,
-      row.testcase_expected_output,
-      row.testcase1expectedoutput,
-      row.test_case_expected_output,
-      row.test_case_1_expected_output,
-      row.expected_output,
-      row.expected_output_1,
-      row.expectedOutput,
-      row.output,
-      row.output_1,
-      row.output1,
+      "testcase_output", "testcaseoutput", "testcase1output", "test_case_output",
+      "test_case_1_output", "testcase_expected_output", "testcaseexpectedoutput",
+      "sample_output", "sample_output_1", "sampleOutput", "sampleOutput1",
+      "tc1_output", "tc1output", "expected_output", "expected_output_1",
+      "expectedOutput", "expectedOutput1", "output", "output_1", "output1",
+      "example_output", "exampleOutput"
     ] : [])
   ];
 
-  let inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
-  let out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
-
-  // Dynamic fallback: scan row keys if not found
-  if (inp === undefined || out === undefined) {
-    const keys = Object.keys(row);
-    if (inp === undefined) {
-      const matchKey = keys.find((k) => {
-        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
-        if (norm.includes("hidden")) return false;
-        return norm === `testcase${i}input` || norm === `tc${i}input` || norm === `input${i}` || norm === `case${i}input`;
-      });
-      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
-        inp = row[matchKey];
-      }
+  let inp: any = undefined;
+  for (const k of directInputKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
+      inp = row[k];
+      break;
     }
-    if (out === undefined) {
-      const matchKey = keys.find((k) => {
-        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
-        if (norm.includes("hidden")) return false;
-        return norm === `testcase${i}output` || norm === `tc${i}output` || norm === `output${i}` ||
-               norm === `testcase${i}expectedoutput` || norm === `expectedoutput${i}` || norm === `case${i}output`;
-      });
-      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
-        out = row[matchKey];
+  }
+
+  let out: any = undefined;
+  for (const k of directOutputKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
+      out = row[k];
+      break;
+    }
+  }
+
+  // Dynamic regex fallback: scan all keys in row if direct candidate not found
+  if (inp === undefined || out === undefined) {
+    const rawKeys = Object.keys(row);
+    for (const rawKey of rawKeys) {
+      const val = row[rawKey];
+      if (val === undefined || val === null || String(val).trim() === "") continue;
+      const norm = rawKey.toLowerCase().replace(/[\s\-_*()\[\]/\\:#]+/g, "");
+
+      // Ignore anything explicitly marked hidden or private
+      if (norm.includes("hidden") || norm.includes("private") || norm.startsWith("htc") || norm.includes("htc")) continue;
+
+      // Extract number from key: e.g. testcase1, tc2, input3, case4, sample5
+      const numMatch = norm.match(/(?:testcase|test_case|test|tc|case|sample|example|input|output)0*(\d+)/i);
+      const keyNum = (numMatch && numMatch[1]) ? parseInt(numMatch[1], 10) : (i === 1 && (norm === "input" || norm === "sampleinput" || norm === "output" || norm === "sampleoutput") ? 1 : null);
+
+      if (keyNum === i) {
+        const isOutput = norm.includes("output") || norm.includes("expected") || norm.includes("out") || norm.includes("ans") || norm.includes("result");
+        if (isOutput && out === undefined) {
+          out = val;
+        } else if (!isOutput && inp === undefined) {
+          inp = val;
+        }
       }
     }
   }
@@ -147,201 +156,200 @@ export function resolvePublicTestCase(row: Record<string, any>, i: number): { in
 }
 
 export function resolveHiddenTestCase(row: Record<string, any>, h: number): { input: string; output: string } | null {
-  const inputCandidates = [
-    row[`hidden_testcase_${h}_input`],
-    row[`hidden_testcase${h}_input`],
-    row[`hidden_test_case_${h}_input`],
-    row[`hidden_test_case${h}_input`],
-    row[`hidden_test_${h}_input`],
-    row[`hidden_test${h}_input`],
-    row[`hiddentestcase_${h}_input`],
-    row[`hiddentestcase${h}_input`],
-    row[`hiddentestcase${h}input`],
-    row[`hiddentestcase_${h}`],
-    row[`hiddentestcase${h}`],
-    row[`hidden_input_${h}`],
-    row[`hidden_input${h}`],
-    row[`hiddeninput_${h}`],
-    row[`hiddeninput${h}`],
-    row[`hidden${h}_input`],
-    row[`hidden${h}Input`],
-    row[`hidden${h}input`],
-    row[`h${h}_input`],
-    row[`h${h}input`],
-    row[`h${h}_in`],
-    row[`h${h}in`],
-    row[`hidden_testcase_${h}`],
-    row[`hidden_testcase${h}`],
-    row[`hidden_test_case_${h}`],
-    row[`hidden_test_case${h}`],
-    row[`hidden_case_${h}_input`],
-    row[`hiddencase${h}input`],
-    row[`hidden_case_${h}`],
-    row[`hiddencase${h}`],
-    row[`h_tc_${h}_input`],
-    row[`htc_${h}_input`],
-    row[`htc${h}_input`],
-    row[`htc${h}input`],
+  if (!row) return null;
+
+  const directInputKeys = [
+    `hidden_testcase_${h}_input`,
+    `hidden_testcase${h}_input`,
+    `hidden_testcase_${h}`,
+    `hidden_testcase${h}`,
+    `hiddentestcase_${h}_input`,
+    `hiddentestcase${h}_input`,
+    `hiddentestcase${h}input`,
+    `hiddentestcase_${h}`,
+    `hiddentestcase${h}`,
+    `hidden_test_${h}_input`,
+    `hidden_test${h}_input`,
+    `hidden_test_${h}`,
+    `hidden_test${h}`,
+    `hidden_test_case_${h}_input`,
+    `hidden_test_case${h}_input`,
+    `hidden_test_case_${h}`,
+    `hidden_test_case${h}`,
+    `hidden_input_${h}`,
+    `hidden_input${h}`,
+    `hiddeninput_${h}`,
+    `hiddeninput${h}`,
+    `hidden_${h}_input`,
+    `hidden${h}_input`,
+    `hidden${h}input`,
+    `hidden_${h}`,
+    `hidden${h}`,
+    `hidden_case_${h}_input`,
+    `hiddencase${h}input`,
+    `hidden_case_${h}`,
+    `hiddencase${h}`,
+    `htc_${h}_input`,
+    `htc${h}_input`,
+    `htc${h}input`,
+    `htc_${h}`,
+    `htc${h}`,
+    `h_${h}_input`,
+    `h${h}_input`,
+    `h${h}input`,
+    `h_${h}_in`,
+    `h${h}_in`,
+    `h${h}in`,
+    `h_${h}`,
+    `h${h}`,
+    `private_testcase_${h}_input`,
+    `privatetestcase${h}input`,
+    `private_testcase_${h}`,
+    `privatetestcase${h}`,
+    `private_test_case_${h}_input`,
+    `private_test_case${h}_input`,
+    `private_input_${h}`,
+    `privateinput${h}`,
+    `private_${h}_input`,
+    `private${h}input`,
+    `private_${h}`,
+    `private${h}`,
+    `private_case_${h}`,
+    `privatecase${h}`,
     ...(h === 1 ? [
-      row.hidden_testcase_input,
-      row.hidden_testcase_1_input,
-      row.hidden_test_case_input,
-      row.hidden_test_case_1_input,
-      row.hiddentestcaseinput,
-      row.hiddentestcase1input,
-      row.hidden_input,
-      row.hidden_input_1,
-      row.hiddenInput,
-      row.hiddeninput,
-      row.hiddeninput1,
-      row.hidden_testcase,
-      row.hidden_testcase_1,
-      row.hidden_test_case,
-      row.hidden_test_case_1,
-      row.hiddentestcase,
-      row.hiddentestcase1,
-      row.h1_input,
-      row.h1input,
-      row.h1_in,
-      row.h1in,
-      row.hidden_case_1_input,
-      row.hiddencase1input,
-      row.hidden_case_1,
-      row.hiddencase1,
-      row.htc1_input,
-      row.htc1input,
+      "hidden_testcase_input", "hiddentestcaseinput", "hidden_testcase_1_input",
+      "hidden_testcase", "hiddentestcase", "hidden_testcase_1", "hiddentestcase1",
+      "hidden_test_case_input", "hidden_test_case_1_input", "hidden_test_case",
+      "hidden_test_case_1", "hidden_input", "hidden_input_1", "hiddeninput",
+      "hiddeninput1", "hiddenInput", "hiddenInput1", "h1_input", "h1input",
+      "h1_in", "h1in", "h1", "hidden_case_1_input", "hiddencase1input",
+      "hidden_case_1", "hiddencase1", "htc1_input", "htc1input", "htc1",
+      "private_testcase_input", "privatetestcaseinput", "private_input",
+      "privateinput", "private_case_1"
     ] : [])
   ];
 
-  const outputCandidates = [
-    row[`hidden_testcase_${h}_output`],
-    row[`hidden_testcase${h}_output`],
-    row[`hidden_test_case_${h}_output`],
-    row[`hidden_test_case${h}_output`],
-    row[`hidden_test_${h}_output`],
-    row[`hidden_test${h}_output`],
-    row[`hiddentestcase_${h}_output`],
-    row[`hiddentestcase${h}_output`],
-    row[`hiddentestcase${h}output`],
-    row[`hiddentestcase_${h}_expected_output`],
-    row[`hiddentestcase${h}_expected_output`],
-    row[`hiddentestcase${h}expectedoutput`],
-    row[`hidden_testcase_${h}_expected_output`],
-    row[`hidden_test_case_${h}_expected_output`],
-    row[`hidden_testcase${h}_expected_output`],
-    row[`hidden_test_case${h}_expected_output`],
-    row[`hidden_output_${h}`],
-    row[`hidden_output${h}`],
-    row[`hiddenoutput_${h}`],
-    row[`hiddenoutput${h}`],
-    row[`hidden${h}_output`],
-    row[`hidden${h}Output`],
-    row[`hidden${h}output`],
-    row[`hidden_expected_output_${h}`],
-    row[`hidden_expected_output${h}`],
-    row[`hiddenexpectedoutput_${h}`],
-    row[`hiddenexpectedoutput${h}`],
-    row[`hidden_${h}_output`],
-    row[`hidden_${h}_expected_output`],
-    row[`h${h}_output`],
-    row[`h${h}output`],
-    row[`h${h}_out`],
-    row[`h${h}out`],
-    row[`h${h}_expected_output`],
-    row[`h${h}expectedoutput`],
-    row[`hidden_case_${h}_output`],
-    row[`hiddencase${h}output`],
-    row[`hidden_case_${h}_expected_output`],
-    row[`hiddencase${h}expectedoutput`],
-    row[`h_tc_${h}_output`],
-    row[`htc_${h}_output`],
-    row[`htc${h}_output`],
-    row[`htc${h}output`],
-    row[`htc${h}expectedoutput`],
+  const directOutputKeys = [
+    `hidden_testcase_${h}_output`,
+    `hidden_testcase${h}_output`,
+    `hiddentestcase_${h}_output`,
+    `hiddentestcase${h}_output`,
+    `hiddentestcase${h}output`,
+    `hidden_testcase_${h}_expected_output`,
+    `hidden_testcase${h}_expected_output`,
+    `hiddentestcase_${h}_expected_output`,
+    `hiddentestcase${h}_expected_output`,
+    `hiddentestcase${h}expectedoutput`,
+    `hidden_test_case_${h}_output`,
+    `hidden_test_case${h}_output`,
+    `hidden_test_case_${h}_expected_output`,
+    `hidden_test_case${h}_expected_output`,
+    `hidden_test_${h}_output`,
+    `hidden_test${h}_output`,
+    `hidden_output_${h}`,
+    `hidden_output${h}`,
+    `hiddenoutput_${h}`,
+    `hiddenoutput${h}`,
+    `hidden_expected_output_${h}`,
+    `hidden_expected_output${h}`,
+    `hiddenexpectedoutput_${h}`,
+    `hiddenexpectedoutput${h}`,
+    `hidden_${h}_output`,
+    `hidden${h}_output`,
+    `hidden${h}output`,
+    `hidden_${h}_expected_output`,
+    `hidden${h}_expected_output`,
+    `hidden${h}expectedoutput`,
+    `hidden_case_${h}_output`,
+    `hiddencase${h}output`,
+    `hidden_case_${h}_expected_output`,
+    `hiddencase${h}expectedoutput`,
+    `htc_${h}_output`,
+    `htc${h}_output`,
+    `htc${h}output`,
+    `htc_${h}_expected_output`,
+    `htc${h}_expected_output`,
+    `htc${h}expectedoutput`,
+    `h_${h}_output`,
+    `h${h}_output`,
+    `h${h}output`,
+    `h_${h}_out`,
+    `h${h}_out`,
+    `h${h}out`,
+    `h_${h}_expected_output`,
+    `h${h}_expected_output`,
+    `h${h}expectedoutput`,
+    `private_testcase_${h}_output`,
+    `privatetestcase${h}output`,
+    `private_testcase_${h}_expected_output`,
+    `privatetestcase${h}expectedoutput`,
+    `private_test_case_${h}_output`,
+    `private_test_case${h}_output`,
+    `private_output_${h}`,
+    `privateoutput${h}`,
+    `private_expected_output_${h}`,
+    `privateexpectedoutput${h}`,
+    `private_${h}_output`,
+    `private${h}output`,
+    `private_case_${h}_output`,
+    `privatecase${h}output`,
     ...(h === 1 ? [
-      row.hidden_testcase_output,
-      row.hidden_testcase_1_output,
-      row.hidden_test_case_output,
-      row.hidden_test_case_1_output,
-      row.hiddentestcaseoutput,
-      row.hiddentestcase1output,
-      row.hidden_output,
-      row.hidden_output_1,
-      row.hiddenOutput,
-      row.hiddenoutput,
-      row.hiddenoutput1,
-      row.hidden_testcase_expected_output,
-      row.hidden_testcase_1_expected_output,
-      row.hidden_test_case_expected_output,
-      row.hidden_test_case_1_expected_output,
-      row.hiddentestcaseexpectedoutput,
-      row.hiddentestcase1expectedoutput,
-      row.hidden_expected_output,
-      row.hidden_expected_output_1,
-      row.hiddenexpectedoutput,
-      row.hiddenexpectedoutput1,
-      row.h1_output,
-      row.h1output,
-      row.h1_out,
-      row.h1out,
-      row.h1_expected_output,
-      row.h1expectedoutput,
-      row.hidden_case_1_output,
-      row.hiddencase1output,
-      row.hidden_case_1_expected_output,
-      row.hiddencase1expectedoutput,
-      row.htc1_output,
-      row.htc1output,
-      row.htc1expectedoutput,
+      "hidden_testcase_output", "hiddentestcaseoutput", "hidden_testcase_1_output",
+      "hidden_testcase_expected_output", "hiddentestcaseexpectedoutput",
+      "hidden_testcase_1_expected_output", "hiddentestcase1expectedoutput",
+      "hidden_test_case_output", "hidden_test_case_1_output",
+      "hidden_test_case_expected_output", "hidden_test_case_1_expected_output",
+      "hidden_output", "hidden_output_1", "hiddenoutput", "hiddenoutput1",
+      "hiddenOutput", "hiddenOutput1", "hidden_expected_output",
+      "hidden_expected_output_1", "hiddenexpectedoutput", "hiddenexpectedoutput1",
+      "h1_output", "h1output", "h1_out", "h1out", "h1_expected_output",
+      "h1expectedoutput", "hidden_case_1_output", "hiddencase1output",
+      "hidden_case_1_expected_output", "hiddencase1expectedoutput",
+      "htc1_output", "htc1output", "htc1expectedoutput",
+      "private_testcase_output", "privatetestcaseoutput",
+      "private_testcase_expected_output", "private_output", "privateoutput"
     ] : [])
   ];
 
-  let inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
-  let out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
-
-  // Dynamic fallback: scan row keys if not found
-  if (inp === undefined || out === undefined) {
-    const keys = Object.keys(row);
-    if (inp === undefined) {
-      const matchKey = keys.find((k) => {
-        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
-        if (!norm.includes("hidden") && !norm.startsWith("h") && !norm.includes("htc")) return false;
-        return (
-          norm === `hiddentestcase${h}input` ||
-          norm === `hiddentestcase${h}` ||
-          norm === `hiddeninput${h}` ||
-          norm === `hidden${h}input` ||
-          norm === `h${h}input` ||
-          norm === `hiddencase${h}input` ||
-          norm === `htc${h}input` ||
-          (h === 1 && (norm === "hiddentestcaseinput" || norm === "hiddeninput" || norm === "h1input"))
-        );
-      });
-      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
-        inp = row[matchKey];
-      }
+  let inp: any = undefined;
+  for (const k of directInputKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
+      inp = row[k];
+      break;
     }
-    if (out === undefined) {
-      const matchKey = keys.find((k) => {
-        const norm = k.toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, "");
-        if (!norm.includes("hidden") && !norm.startsWith("h") && !norm.includes("htc")) return false;
-        return (
-          norm === `hiddentestcase${h}output` ||
-          norm === `hiddentestcase${h}expectedoutput` ||
-          norm === `hiddenoutput${h}` ||
-          norm === `hiddenexpectedoutput${h}` ||
-          norm === `hidden${h}output` ||
-          norm === `h${h}output` ||
-          norm === `h${h}expectedoutput` ||
-          norm === `hiddencase${h}output` ||
-          norm === `hiddencase${h}expectedoutput` ||
-          norm === `htc${h}output` ||
-          norm === `htc${h}expectedoutput` ||
-          (h === 1 && (norm === "hiddentestcaseoutput" || norm === "hiddenoutput" || norm === "h1output" || norm === "hiddentestcaseexpectedoutput"))
-        );
-      });
-      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && String(row[matchKey]).trim() !== "") {
-        out = row[matchKey];
+  }
+
+  let out: any = undefined;
+  for (const k of directOutputKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
+      out = row[k];
+      break;
+    }
+  }
+
+  // Dynamic regex fallback: scan all keys in row if direct candidate not found
+  if (inp === undefined || out === undefined) {
+    const rawKeys = Object.keys(row);
+    for (const rawKey of rawKeys) {
+      const val = row[rawKey];
+      if (val === undefined || val === null || String(val).trim() === "") continue;
+      const norm = rawKey.toLowerCase().replace(/[\s\-_*()\[\]/\\:#]+/g, "");
+
+      // Must be a hidden or private candidate
+      const isHiddenVariant = norm.includes("hidden") || norm.includes("private") || norm.startsWith("htc") || norm.includes("htc") || /^h\d+/i.test(norm);
+      if (!isHiddenVariant) continue;
+
+      // Extract number from key: e.g. hiddentestcase1, htc2, hidden3, h4, private5
+      const numMatch = norm.match(/(?:hidden|private|htc|h)0*(\d+)/i);
+      const keyNum = (numMatch && numMatch[1]) ? parseInt(numMatch[1], 10) : (h === 1 ? 1 : null);
+
+      if (keyNum === h) {
+        const isOutput = norm.includes("output") || norm.includes("expected") || norm.includes("out") || norm.includes("ans") || norm.includes("result");
+        if (isOutput && out === undefined) {
+          out = val;
+        } else if (!isOutput && inp === undefined) {
+          inp = val;
+        }
       }
     }
   }
@@ -356,8 +364,8 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
   const publicTestCases: any[] = [];
   const hiddenTestCases: any[] = [];
 
-  // 1. Explicit Public Test Cases (1 to 20)
-  for (let i = 1; i <= 20; i++) {
+  // 1. Explicit Public Test Cases (1 to 50)
+  for (let i = 1; i <= 50; i++) {
     const res = resolvePublicTestCase(row, i);
     if (res) {
       publicTestCases.push({
@@ -386,8 +394,8 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
     });
   }
 
-  // 2. Hidden Test Cases (1 to 20)
-  for (let h = 1; h <= 20; h++) {
+  // 2. Hidden Test Cases (1 to 50)
+  for (let h = 1; h <= 50; h++) {
     const res = resolveHiddenTestCase(row, h);
     if (res) {
       hiddenTestCases.push({
@@ -399,6 +407,20 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
         is_hidden: true,
       });
     }
+  }
+
+  // Intelligent fallback: If no explicit hidden test cases provided, but author provided > 5 test cases, treat cases > 5 as hidden
+  if (hiddenTestCases.length === 0 && publicTestCases.length > 5) {
+    const toMove = publicTestCases.splice(5);
+    toMove.forEach((tc, idx) => {
+      hiddenTestCases.push({
+        ...tc,
+        id: `tc_hid_${Date.now()}_${idx + 1}_${qIdx}`,
+        name: `Hidden Test Case ${idx + 1}`,
+        is_hidden: true,
+        isSample: false,
+      });
+    });
   }
 
   const problemStatement = String(row.description || row.problemStatement || row.problem_statement || "").trim();
@@ -702,6 +724,86 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       sampleValue: "0 1",
     },
     {
+      key: "testcase_6_input",
+      label: "Test Case 6 Input",
+      type: "string",
+      required: false,
+      description: "Sixth public testcase input",
+      sampleValue: "10 20\n30",
+    },
+    {
+      key: "testcase_6_output",
+      label: "Test Case 6 Expected Output",
+      type: "string",
+      required: false,
+      description: "Sixth public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_7_input",
+      label: "Test Case 7 Input",
+      type: "string",
+      required: false,
+      description: "Seventh public testcase input",
+      sampleValue: "50 100\n150",
+    },
+    {
+      key: "testcase_7_output",
+      label: "Test Case 7 Expected Output",
+      type: "string",
+      required: false,
+      description: "Seventh public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_8_input",
+      label: "Test Case 8 Input",
+      type: "string",
+      required: false,
+      description: "Eighth public testcase input",
+      sampleValue: "1 9\n10",
+    },
+    {
+      key: "testcase_8_output",
+      label: "Test Case 8 Expected Output",
+      type: "string",
+      required: false,
+      description: "Eighth public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_9_input",
+      label: "Test Case 9 Input",
+      type: "string",
+      required: false,
+      description: "Ninth public testcase input",
+      sampleValue: "11 22\n33",
+    },
+    {
+      key: "testcase_9_output",
+      label: "Test Case 9 Expected Output",
+      type: "string",
+      required: false,
+      description: "Ninth public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_10_input",
+      label: "Test Case 10 Input",
+      type: "string",
+      required: false,
+      description: "Tenth public testcase input",
+      sampleValue: "7 14\n21",
+    },
+    {
+      key: "testcase_10_output",
+      label: "Test Case 10 Expected Output",
+      type: "string",
+      required: false,
+      description: "Tenth public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
       key: "hidden_testcase_input",
       label: "Hidden Test Case 1 Input",
       type: "string",
@@ -779,6 +881,86 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       type: "string",
       required: false,
       description: "Expected output for hidden testcase 5",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_6_input",
+      label: "Hidden Test Case 6 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 6 evaluated during submit",
+      sampleValue: "99 1\n100",
+    },
+    {
+      key: "hidden_testcase_6_output",
+      label: "Hidden Test Case 6 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 6",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_7_input",
+      label: "Hidden Test Case 7 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 7 evaluated during submit",
+      sampleValue: "15 25\n40",
+    },
+    {
+      key: "hidden_testcase_7_output",
+      label: "Hidden Test Case 7 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 7",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_8_input",
+      label: "Hidden Test Case 8 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 8 evaluated during submit",
+      sampleValue: "1000 2000\n3000",
+    },
+    {
+      key: "hidden_testcase_8_output",
+      label: "Hidden Test Case 8 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 8",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_9_input",
+      label: "Hidden Test Case 9 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 9 evaluated during submit",
+      sampleValue: "123 456\n579",
+    },
+    {
+      key: "hidden_testcase_9_output",
+      label: "Hidden Test Case 9 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 9",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_10_input",
+      label: "Hidden Test Case 10 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 10 evaluated during submit",
+      sampleValue: "500 500\n1000",
+    },
+    {
+      key: "hidden_testcase_10_output",
+      label: "Hidden Test Case 10 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 10",
       sampleValue: "0 1",
     },
     {
@@ -1130,8 +1312,8 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
 
     const testCases: any[] = [];
 
-    // Scan numbered public test cases (1 to 20)
-    for (let i = 1; i <= 20; i++) {
+    // Scan numbered public test cases (1 to 50)
+    for (let i = 1; i <= 50; i++) {
       const res = resolvePublicTestCase(row, i);
       if (res) {
         testCases.push({
@@ -1161,8 +1343,8 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       });
     }
 
-    // Scan hidden test cases (1 to 20)
-    for (let h = 1; h <= 20; h++) {
+    // Scan hidden test cases (1 to 50)
+    for (let h = 1; h <= 50; h++) {
       const res = resolveHiddenTestCase(row, h);
       if (res) {
         testCases.push({
@@ -1176,6 +1358,18 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
           order_index: testCases.length,
         });
       }
+    }
+
+    // Intelligent fallback: If author provided > 5 test cases and 0 explicit hidden test cases,
+    // automatically treat test cases from index 5 onwards as hidden test cases!
+    if (testCases.filter((tc) => tc.is_hidden).length === 0 && testCases.length > 5) {
+      testCases.forEach((tc, tcIdx) => {
+        if (tcIdx >= 5) {
+          tc.is_hidden = true;
+          tc.name = `Hidden Case ${tcIdx - 4}`;
+          tc.weight = 20;
+        }
+      });
     }
 
     // Embedded JSON test cases support (e.g. if column contains JSON array)
@@ -1747,6 +1941,86 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         sampleValue: "25",
       },
       {
+        key: "testcase_6_input",
+        label: "Test Case 6 Input",
+        type: "string",
+        required: false,
+        description: "Sixth public testcase input",
+        sampleValue: "30",
+      },
+      {
+        key: "testcase_6_output",
+        label: "Test Case 6 Expected Output",
+        type: "string",
+        required: false,
+        description: "Sixth public testcase expected output",
+        sampleValue: "30",
+      },
+      {
+        key: "testcase_7_input",
+        label: "Test Case 7 Input",
+        type: "string",
+        required: false,
+        description: "Seventh public testcase input",
+        sampleValue: "35",
+      },
+      {
+        key: "testcase_7_output",
+        label: "Test Case 7 Expected Output",
+        type: "string",
+        required: false,
+        description: "Seventh public testcase expected output",
+        sampleValue: "35",
+      },
+      {
+        key: "testcase_8_input",
+        label: "Test Case 8 Input",
+        type: "string",
+        required: false,
+        description: "Eighth public testcase input",
+        sampleValue: "40",
+      },
+      {
+        key: "testcase_8_output",
+        label: "Test Case 8 Expected Output",
+        type: "string",
+        required: false,
+        description: "Eighth public testcase expected output",
+        sampleValue: "40",
+      },
+      {
+        key: "testcase_9_input",
+        label: "Test Case 9 Input",
+        type: "string",
+        required: false,
+        description: "Ninth public testcase input",
+        sampleValue: "45",
+      },
+      {
+        key: "testcase_9_output",
+        label: "Test Case 9 Expected Output",
+        type: "string",
+        required: false,
+        description: "Ninth public testcase expected output",
+        sampleValue: "45",
+      },
+      {
+        key: "testcase_10_input",
+        label: "Test Case 10 Input",
+        type: "string",
+        required: false,
+        description: "Tenth public testcase input",
+        sampleValue: "50",
+      },
+      {
+        key: "testcase_10_output",
+        label: "Test Case 10 Expected Output",
+        type: "string",
+        required: false,
+        description: "Tenth public testcase expected output",
+        sampleValue: "50",
+      },
+      {
         key: "hidden_testcase_input",
         label: "Hidden Test Case 1 Input",
         type: "string",
@@ -1825,6 +2099,86 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Expected output for hidden test case 5",
         sampleValue: "5000",
+      },
+      {
+        key: "hidden_testcase_6_input",
+        label: "Hidden Test Case 6 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 6 evaluated during Submit",
+        sampleValue: "10000",
+      },
+      {
+        key: "hidden_testcase_6_output",
+        label: "Hidden Test Case 6 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 6",
+        sampleValue: "10000",
+      },
+      {
+        key: "hidden_testcase_7_input",
+        label: "Hidden Test Case 7 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 7 evaluated during Submit",
+        sampleValue: "20000",
+      },
+      {
+        key: "hidden_testcase_7_output",
+        label: "Hidden Test Case 7 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 7",
+        sampleValue: "20000",
+      },
+      {
+        key: "hidden_testcase_8_input",
+        label: "Hidden Test Case 8 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 8 evaluated during Submit",
+        sampleValue: "50000",
+      },
+      {
+        key: "hidden_testcase_8_output",
+        label: "Hidden Test Case 8 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 8",
+        sampleValue: "50000",
+      },
+      {
+        key: "hidden_testcase_9_input",
+        label: "Hidden Test Case 9 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 9 evaluated during Submit",
+        sampleValue: "75000",
+      },
+      {
+        key: "hidden_testcase_9_output",
+        label: "Hidden Test Case 9 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 9",
+        sampleValue: "75000",
+      },
+      {
+        key: "hidden_testcase_10_input",
+        label: "Hidden Test Case 10 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 10 evaluated during Submit",
+        sampleValue: "100000",
+      },
+      {
+        key: "hidden_testcase_10_output",
+        label: "Hidden Test Case 10 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 10",
+        sampleValue: "100000",
       },
       {
         key: "starterCode",
@@ -2536,6 +2890,54 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         sampleValue: "dlrow",
       },
       {
+        key: "testcase_3_input",
+        label: "Test Case 3 Input",
+        type: "string",
+        required: false,
+        description: "Public test case 3 input",
+        sampleValue: "alpha",
+      },
+      {
+        key: "testcase_3_output",
+        label: "Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Public test case 3 expected output",
+        sampleValue: "ahpla",
+      },
+      {
+        key: "testcase_4_input",
+        label: "Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Public test case 4 input",
+        sampleValue: "beta",
+      },
+      {
+        key: "testcase_4_output",
+        label: "Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Public test case 4 expected output",
+        sampleValue: "ateb",
+      },
+      {
+        key: "testcase_5_input",
+        label: "Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Public test case 5 input",
+        sampleValue: "gamma",
+      },
+      {
+        key: "testcase_5_output",
+        label: "Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Public test case 5 expected output",
+        sampleValue: "ammag",
+      },
+      {
         key: "hidden_testcase_input",
         label: "Hidden Test Case 1 Input",
         type: "string",
@@ -2550,6 +2952,70 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Hidden evaluation expected output",
         sampleValue: "racecar",
+      },
+      {
+        key: "hidden_testcase_2_input",
+        label: "Hidden Test Case 2 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 2",
+        sampleValue: "noon",
+      },
+      {
+        key: "hidden_testcase_2_output",
+        label: "Hidden Test Case 2 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 2 expected output",
+        sampleValue: "noon",
+      },
+      {
+        key: "hidden_testcase_3_input",
+        label: "Hidden Test Case 3 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 3",
+        sampleValue: "kayak",
+      },
+      {
+        key: "hidden_testcase_3_output",
+        label: "Hidden Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 3 expected output",
+        sampleValue: "kayak",
+      },
+      {
+        key: "hidden_testcase_4_input",
+        label: "Hidden Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 4",
+        sampleValue: "deified",
+      },
+      {
+        key: "hidden_testcase_4_output",
+        label: "Hidden Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 4 expected output",
+        sampleValue: "deified",
+      },
+      {
+        key: "hidden_testcase_5_input",
+        label: "Hidden Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 5",
+        sampleValue: "rotator",
+      },
+      {
+        key: "hidden_testcase_5_output",
+        label: "Hidden Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 5 expected output",
+        sampleValue: "rotator",
       },
       {
         key: "starterCode",
@@ -2601,17 +3067,26 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
     mapToPayload: (row, idx) => {
       const secName = String(row.sectionName || row.section || "Coding Challenges").trim();
       const testCases: any[] = [];
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= 50; i++) {
         const res = resolvePublicTestCase(row, i);
         if (res) {
           testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: false, is_hidden: false });
         }
       }
-      for (let h = 1; h <= 20; h++) {
+      for (let h = 1; h <= 50; h++) {
         const res = resolveHiddenTestCase(row, h);
         if (res) {
           testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: true, is_hidden: true });
         }
+      }
+
+      if (testCases.filter(tc => tc.is_hidden).length === 0 && testCases.length > 5) {
+        testCases.forEach((tc, tcIdx) => {
+          if (tcIdx >= 5) {
+            tc.is_hidden = true;
+            tc.isHidden = true;
+          }
+        });
       }
 
       const finalCases = testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false, is_hidden: false }];
@@ -2646,17 +3121,26 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         const rows = group.rows || [];
         const questions = rows.map((r, qIdx) => {
           const testCases: any[] = [];
-          for (let i = 1; i <= 20; i++) {
+          for (let i = 1; i <= 50; i++) {
             const res = resolvePublicTestCase(r, i);
             if (res) {
               testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: false, is_hidden: false });
             }
           }
-          for (let h = 1; h <= 20; h++) {
+          for (let h = 1; h <= 50; h++) {
             const res = resolveHiddenTestCase(r, h);
             if (res) {
               testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: true, is_hidden: true });
             }
+          }
+
+          if (testCases.filter(tc => tc.is_hidden).length === 0 && testCases.length > 5) {
+            testCases.forEach((tc, tcIdx) => {
+              if (tcIdx >= 5) {
+                tc.is_hidden = true;
+                tc.isHidden = true;
+              }
+            });
           }
 
           const finalCases = testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false, is_hidden: false }];
@@ -3614,6 +4098,54 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
       sampleValue: "1 2",
     },
     {
+      key: "testcase_3_input",
+      label: "Test Case 3 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 3 input (Coding only)",
+      sampleValue: "3 3\n6",
+    },
+    {
+      key: "testcase_3_output",
+      label: "Test Case 3 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 3 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_4_input",
+      label: "Test Case 4 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 4 input (Coding only)",
+      sampleValue: "1 5\n6",
+    },
+    {
+      key: "testcase_4_output",
+      label: "Test Case 4 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 4 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_5_input",
+      label: "Test Case 5 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 5 input (Coding only)",
+      sampleValue: "4 8\n12",
+    },
+    {
+      key: "testcase_5_output",
+      label: "Test Case 5 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 5 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
       key: "hidden_testcase_input",
       label: "Hidden Test Case 1 Input (Coding)",
       type: "string",
@@ -3627,6 +4159,70 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
       type: "string",
       required: false,
       description: "Hidden evaluation expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_2_input",
+      label: "Hidden Test Case 2 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 2 (Coding only)",
+      sampleValue: "10 20\n30",
+    },
+    {
+      key: "hidden_testcase_2_output",
+      label: "Hidden Test Case 2 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 2 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_3_input",
+      label: "Hidden Test Case 3 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 3 (Coding only)",
+      sampleValue: "50 50\n100",
+    },
+    {
+      key: "hidden_testcase_3_output",
+      label: "Hidden Test Case 3 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 3 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_4_input",
+      label: "Hidden Test Case 4 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 4 (Coding only)",
+      sampleValue: "1 99\n100",
+    },
+    {
+      key: "hidden_testcase_4_output",
+      label: "Hidden Test Case 4 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 4 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_5_input",
+      label: "Hidden Test Case 5 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 5 (Coding only)",
+      sampleValue: "0 0\n0",
+    },
+    {
+      key: "hidden_testcase_5_output",
+      label: "Hidden Test Case 5 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 5 expected output (Coding only)",
       sampleValue: "0 1",
     },
   ];
@@ -3780,7 +4376,7 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
 
       // Coding Problem
       const testCases: any[] = [];
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= 50; i++) {
         const res = resolvePublicTestCase(row, i);
         if (res) {
           testCases.push({
@@ -3793,7 +4389,7 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
           });
         }
       }
-      for (let h = 1; h <= 20; h++) {
+      for (let h = 1; h <= 50; h++) {
         const res = resolveHiddenTestCase(row, h);
         if (res) {
           testCases.push({
@@ -3805,6 +4401,16 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
             is_hidden: true,
           });
         }
+      }
+
+      // Intelligent fallback: If author provided > 5 test cases and 0 explicit hidden test cases,
+      // automatically treat test cases from index 5 onwards as hidden!
+      if (testCases.filter((tc) => tc.is_hidden).length === 0 && testCases.length > 5) {
+        testCases.forEach((tc, tcIdx) => {
+          if (tcIdx >= 5) {
+            tc.is_hidden = true;
+          }
+        });
       }
 
       const rawTitle = String(row.title || `Coding Challenge ${idx + 1}`).trim();
@@ -4248,6 +4854,86 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
       sampleValue: "1",
     },
     {
+      key: "testcase_6_input",
+      label: "Test Case 6 Input",
+      type: "string",
+      required: false,
+      description: "Sixth public testcase input",
+      sampleValue: "11",
+    },
+    {
+      key: "testcase_6_output",
+      label: "Test Case 6 Expected Output",
+      type: "string",
+      required: false,
+      description: "Sixth public testcase expected output",
+      sampleValue: "121",
+    },
+    {
+      key: "testcase_7_input",
+      label: "Test Case 7 Input",
+      type: "string",
+      required: false,
+      description: "Seventh public testcase input",
+      sampleValue: "12",
+    },
+    {
+      key: "testcase_7_output",
+      label: "Test Case 7 Expected Output",
+      type: "string",
+      required: false,
+      description: "Seventh public testcase expected output",
+      sampleValue: "144",
+    },
+    {
+      key: "testcase_8_input",
+      label: "Test Case 8 Input",
+      type: "string",
+      required: false,
+      description: "Eighth public testcase input",
+      sampleValue: "13",
+    },
+    {
+      key: "testcase_8_output",
+      label: "Test Case 8 Expected Output",
+      type: "string",
+      required: false,
+      description: "Eighth public testcase expected output",
+      sampleValue: "169",
+    },
+    {
+      key: "testcase_9_input",
+      label: "Test Case 9 Input",
+      type: "string",
+      required: false,
+      description: "Ninth public testcase input",
+      sampleValue: "14",
+    },
+    {
+      key: "testcase_9_output",
+      label: "Test Case 9 Expected Output",
+      type: "string",
+      required: false,
+      description: "Ninth public testcase expected output",
+      sampleValue: "196",
+    },
+    {
+      key: "testcase_10_input",
+      label: "Test Case 10 Input",
+      type: "string",
+      required: false,
+      description: "Tenth public testcase input",
+      sampleValue: "15",
+    },
+    {
+      key: "testcase_10_output",
+      label: "Test Case 10 Expected Output",
+      type: "string",
+      required: false,
+      description: "Tenth public testcase expected output",
+      sampleValue: "225",
+    },
+    {
       key: "hidden_testcase_input",
       label: "Hidden Test Case 1 Input",
       type: "string",
@@ -4326,6 +5012,86 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
       required: false,
       description: "Hidden evaluation 5 expected output",
       sampleValue: "1",
+    },
+    {
+      key: "hidden_testcase_6_input",
+      label: "Hidden Test Case 6 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 6",
+      sampleValue: "16",
+    },
+    {
+      key: "hidden_testcase_6_output",
+      label: "Hidden Test Case 6 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 6 expected output",
+      sampleValue: "256",
+    },
+    {
+      key: "hidden_testcase_7_input",
+      label: "Hidden Test Case 7 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 7",
+      sampleValue: "17",
+    },
+    {
+      key: "hidden_testcase_7_output",
+      label: "Hidden Test Case 7 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 7 expected output",
+      sampleValue: "289",
+    },
+    {
+      key: "hidden_testcase_8_input",
+      label: "Hidden Test Case 8 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 8",
+      sampleValue: "18",
+    },
+    {
+      key: "hidden_testcase_8_output",
+      label: "Hidden Test Case 8 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 8 expected output",
+      sampleValue: "324",
+    },
+    {
+      key: "hidden_testcase_9_input",
+      label: "Hidden Test Case 9 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 9",
+      sampleValue: "19",
+    },
+    {
+      key: "hidden_testcase_9_output",
+      label: "Hidden Test Case 9 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 9 expected output",
+      sampleValue: "361",
+    },
+    {
+      key: "hidden_testcase_10_input",
+      label: "Hidden Test Case 10 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 10",
+      sampleValue: "20",
+    },
+    {
+      key: "hidden_testcase_10_output",
+      label: "Hidden Test Case 10 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 10 expected output",
+      sampleValue: "400",
     },
   ];
 
@@ -4546,7 +5312,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
 
     const testCases: any[] = [];
     if (qType === "coding") {
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= 50; i++) {
         const res = resolvePublicTestCase(row, i);
         if (res) {
           testCases.push({
@@ -4559,7 +5325,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
           });
         }
       }
-      for (let h = 1; h <= 20; h++) {
+      for (let h = 1; h <= 50; h++) {
         const res = resolveHiddenTestCase(row, h);
         if (res) {
           testCases.push({
@@ -4571,6 +5337,15 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
             is_hidden: true,
           });
         }
+      }
+      const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
+      if (hiddenCount === 0 && testCases.length > 5) {
+        testCases.forEach((tc, idx) => {
+          if (idx >= 5) {
+            tc.is_hidden = true;
+            tc.isHidden = true;
+          }
+        });
       }
     }
 
@@ -4642,7 +5417,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
 
         const testCases: any[] = [];
         if (qType === "coding") {
-          for (let i = 1; i <= 20; i++) {
+          for (let i = 1; i <= 50; i++) {
             const res = resolvePublicTestCase(r, i);
             if (res) {
               testCases.push({
@@ -4655,7 +5430,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
               });
             }
           }
-          for (let h = 1; h <= 20; h++) {
+          for (let h = 1; h <= 50; h++) {
             const res = resolveHiddenTestCase(r, h);
             if (res) {
               testCases.push({
@@ -4667,6 +5442,15 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
                 is_hidden: true,
               });
             }
+          }
+          const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
+          if (hiddenCount === 0 && testCases.length > 5) {
+            testCases.forEach((tc, idx) => {
+              if (idx >= 5) {
+                tc.is_hidden = true;
+                tc.isHidden = true;
+              }
+            });
           }
         }
 
