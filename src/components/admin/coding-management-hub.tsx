@@ -111,10 +111,17 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
 
   const handleBulkImport = async (importedProblems: any[]) => {
     if (!importedProblems || importedProblems.length === 0) return;
-    const toastId = toast.loading(`Importing ${importedProblems.length} coding problems...`);
+    const total = importedProblems.length;
+    const toastId = toast.loading(`Importing ${total} coding problems... (0%)`);
     try {
-      await CodingProblemsService.saveProblems(importedProblems as CodingProblem[]);
-      toast.success(`Successfully imported ${importedProblems.length} coding problems!`, { id: toastId });
+      await CodingProblemsService.saveProblems(
+        importedProblems as CodingProblem[],
+        (processed, totalCount) => {
+          const percent = Math.round((processed / totalCount) * 100);
+          toast.loading(`Importing challenges: ${processed} of ${totalCount} (${percent}%)...`, { id: toastId });
+        }
+      );
+      toast.success(`Successfully imported all ${total} coding problems!`, { id: toastId });
       setIsBulkUploadOpen(false);
       await refreshProblems();
     } catch (err: any) {

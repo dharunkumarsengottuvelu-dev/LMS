@@ -5,6 +5,9 @@ import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 import { formatCleanProblemTitle } from "@/lib/utils";
 import type { CodingProblem, TestCase } from "@/types/coding";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/coding - Fetch coding problems from Supabase DB scoped to Code Lab or Practice
 export async function GET(request: NextRequest) {
   try {
@@ -295,10 +298,25 @@ export async function POST(request: NextRequest) {
 
     const savedResults: any[] = [];
     const isBulk = problemsList.length > 1;
-    const CHUNK_SIZE = 8;
+    const CHUNK_SIZE = 25;
 
     for (let chunkIdx = 0; chunkIdx < problemsList.length; chunkIdx += CHUNK_SIZE) {
       const chunk = problemsList.slice(chunkIdx, chunkIdx + CHUNK_SIZE);
+
+      // Pre-fetch all matching slugs in a single query instead of individual queries
+      const slugsToCheck = chunk
+        .map((p: any) => p.slug)
+        .filter((s: any) => typeof s === "string" && s.trim().length > 0);
+      const slugToIdMap = new Map<string, string>();
+      if (slugsToCheck.length > 0) {
+        const { data: matchSlugs } = await supabase
+          .from("coding_problems")
+          .select("id, slug")
+          .in("slug", slugsToCheck);
+        (matchSlugs || []).forEach((m: any) => {
+          if (m?.slug && m?.id) slugToIdMap.set(m.slug, m.id);
+        });
+      }
 
       const chunkResults = await Promise.all(
         chunk.map(async (problem: any) => {
@@ -311,19 +329,14 @@ export async function POST(request: NextRequest) {
           let problemId = isRealUUID ? problem.id : undefined;
 
           // Check if this problem already exists in DB by slug so we UPDATE it instead of creating a duplicate
-          if (!problemId && problem.slug) {
-            const { data: matchSlug } = await supabase
-              .from("coding_problems")
-              .select("id")
-              .eq("slug", problem.slug)
-              .maybeSingle();
-            if (matchSlug?.id) {
-              problemId = matchSlug.id;
-            }
+          if (!problemId && problem.slug && slugToIdMap.has(problem.slug)) {
+            problemId = slugToIdMap.get(problem.slug);
           }
 
           const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-          const slug = problemId ? (problem.slug || baseSlug) : `${baseSlug}-${Date.now().toString(36)}`;
+          const slug = problemId
+            ? (problem.slug || baseSlug)
+            : `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
 
           const isTcHidden = (tc: any): boolean => {
             if (!tc) return false;

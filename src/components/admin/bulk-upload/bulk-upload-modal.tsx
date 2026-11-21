@@ -128,6 +128,8 @@ export function BulkUploadComponent({
   const [parsedRows, setParsedRows] = useState<ParsedRowResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewFilter, setPreviewFilter] = useState<"all" | "valid" | "invalid">("all");
+  const [previewPage, setPreviewPage] = useState<number>(1);
+  const PREVIEW_PAGE_SIZE = 50;
   const [previewViewMode, setPreviewViewMode] = useState<"modules" | "table">(
     config.groupByField ? "modules" : "table"
   );
@@ -242,6 +244,7 @@ export function BulkUploadComponent({
     setParsedRows([]);
     setIsProcessing(false);
     setPreviewFilter("all");
+    setPreviewPage(1);
     setPreviewViewMode(config.groupByField ? "modules" : "table");
     setExpandedModuleKeys({});
     setSelectedColumnKeys(config.columns.map((c) => c.key));
@@ -732,7 +735,7 @@ export function BulkUploadComponent({
           cleanHeader(mappedRow.type || "").includes("coding");
 
         if (isCodingProblem) {
-          // 1. Title validation & duplicate detection
+          // 1. Title validation & automatic deduplication
           const problemTitle = String(mappedRow.title || mappedRow.questionText || mappedRow.name || "").trim();
           if (!problemTitle) {
             errors.push({
@@ -743,13 +746,12 @@ export function BulkUploadComponent({
           } else {
             const cleanT = problemTitle.toLowerCase();
             if (seenTitles.has(cleanT)) {
-              errors.push({
-                fieldKey: "title",
-                fieldLabel: "Problem Title",
-                message: `Row #${rowNumber} – Duplicate Problem Title: '${problemTitle}' (already defined in Row #${seenTitles.get(cleanT)}).`,
-              });
+              // Disambiguate duplicate titles automatically so valid questions are never dropped or rejected
+              const count = (seenTitles.get(cleanT) || 1) + 1;
+              seenTitles.set(cleanT, count);
+              mappedRow.title = `${problemTitle} (${count})`;
             } else {
-              seenTitles.set(cleanT, rowNumber);
+              seenTitles.set(cleanT, 1);
             }
           }
 
@@ -991,6 +993,12 @@ export function BulkUploadComponent({
     if (previewFilter === "invalid") return !r.isValid;
     return true;
   });
+
+  const pageCount = Math.max(1, Math.ceil(displayedRows.length / PREVIEW_PAGE_SIZE));
+  const paginatedRows = useMemo(() => {
+    const start = (previewPage - 1) * PREVIEW_PAGE_SIZE;
+    return displayedRows.slice(start, start + PREVIEW_PAGE_SIZE);
+  }, [displayedRows, previewPage, PREVIEW_PAGE_SIZE]);
 
   // ─── CONTENT BODY (STRICTLY NO ICONS) ───────────────────────────────────────
   const contentBody = (
@@ -1511,7 +1519,13 @@ export function BulkUploadComponent({
                 </div>
               )}
 
-              <Tabs value={previewFilter} onValueChange={(v) => setPreviewFilter(v as any)}>
+              <Tabs
+                value={previewFilter}
+                onValueChange={(v) => {
+                  setPreviewFilter(v as any);
+                  setPreviewPage(1);
+                }}
+              >
                 <TabsList className="h-9">
                   <TabsTrigger value="all" className="text-xs font-semibold">
                     All ({totalCount})
@@ -1541,7 +1555,7 @@ export function BulkUploadComponent({
           {config.groupByField && previewViewMode === "modules" ? (
             <div className="space-y-4">
               {groupedModules.map((mod, mIdx) => {
-                const isExpanded = expandedModuleKeys[mod.groupKey] !== false;
+                const isExpanded = expandedModuleKeys[mod.groupKey] ?? (mIdx < 3);
                 const hasDupes = mod.duplicateTitles.length > 0;
                 const modValidCount = mod.validRows.length;
                 const modTotalCount = mod.allRows.length;
@@ -1696,7 +1710,7 @@ export function BulkUploadComponent({
                         </td>
                       </tr>
                     ) : (
-                      displayedRows.map((rowItem) => (
+                      paginatedRows.map((rowItem) => (
                         <tr
                           key={rowItem.rowNumber}
                           className={`hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors ${
@@ -1747,6 +1761,45 @@ export function BulkUploadComponent({
                   </tbody>
                 </table>
               </div>
+
+              {displayedRows.length > PREVIEW_PAGE_SIZE && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 text-xs">
+                  <span className="text-slate-500 font-medium">
+                    Showing{" "}
+                    <strong>{(previewPage - 1) * PREVIEW_PAGE_SIZE + 1}</strong>{" "}
+                    to{" "}
+                    <strong>
+                      {Math.min(previewPage * PREVIEW_PAGE_SIZE, displayedRows.length)}
+                    </strong>{" "}
+                    of <strong>{displayedRows.length}</strong> items
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={previewPage <= 1}
+                      onClick={() => setPreviewPage((p) => Math.max(1, p - 1))}
+                      className="h-8 px-3 text-xs font-semibold rounded-lg"
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 px-2">
+                      Page {previewPage} of {pageCount}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={previewPage >= pageCount}
+                      onClick={() => setPreviewPage((p) => Math.min(pageCount, p + 1))}
+                      className="h-8 px-3 text-xs font-semibold rounded-lg"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -69,14 +69,34 @@ export class CodingProblemsService {
   }
 
   /**
-   * Save multiple problems directly in the database in bulk
+   * Save multiple problems directly in the database in bulk with automatic chunking and live progress reporting
    */
-  public static async saveProblems(problems: CodingProblem[]): Promise<CodingProblem[]> {
+  public static async saveProblems(
+    problems: CodingProblem[],
+    onProgress?: (processed: number, total: number) => void
+  ): Promise<CodingProblem[]> {
+    if (!problems || problems.length === 0) return [];
     try {
-      const res = await axios.post("/api/admin/coding", { problems });
-      const saved = res.data?.problems || [];
+      const BATCH_SIZE = 25; // 25 problems per batch ensures high speed without hitting timeouts or payload limits
+      const allSaved: CodingProblem[] = [];
+
+      for (let i = 0; i < problems.length; i += BATCH_SIZE) {
+        const slice = problems.slice(i, i + BATCH_SIZE);
+        const res = await axios.post(
+          "/api/admin/coding",
+          { problems: slice },
+          { timeout: 90000, headers: { "Content-Type": "application/json" } }
+        );
+        const savedChunk = res.data?.problems || [];
+        allSaved.push(...savedChunk);
+
+        if (onProgress) {
+          onProgress(Math.min(i + BATCH_SIZE, problems.length), problems.length);
+        }
+      }
+
       await this.fetchProblems();
-      return saved;
+      return allSaved;
     } catch (err) {
       console.error("Failed to batch save problems via /api/admin/coding:", err);
       throw err;
