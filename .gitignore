@@ -28,6 +28,7 @@ pnpm-store/
 /out/
 dist/
 /build
+.upload-jobs/
 
 # ------------------------------------------------------------------------------
 # Vercel Deployment Artifacts

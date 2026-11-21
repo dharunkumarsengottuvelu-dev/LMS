@@ -20,6 +20,7 @@ import {
 import { safeParseSpreadsheet, downloadExcelWorkbook, downloadSpreadsheetFile } from "@/lib/excel-security";
 import { isCompilerSupportedLanguage, normalizeLanguageId, COMPILER_SUPPORTED_LANGUAGE_IDS } from "@/lib/compiler/coding-language-mode";
 import { CodingProblemsService } from "@/services/coding-problems.service";
+import { cn } from "@/lib/utils";
 
 export interface BulkUploadProps {
   isOpen?: boolean;
@@ -125,14 +126,29 @@ export function BulkUploadComponent({
     setSelectedColumnKeys(config.columns.map((c) => c.key));
   }, [config]);
 
-  // Modal Step: "upload" | "preview"
-  const [currentStep, setCurrentStep] = useState<"upload" | "preview">("upload");
+  // Modal Step: "upload" | "preview" | "monitoring"
+  const [currentStep, setCurrentStep] = useState<"upload" | "preview" | "monitoring">("upload");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [currentStep]);
+
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ParsedRowResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewFilter, setPreviewFilter] = useState<"all" | "valid" | "invalid">("all");
   const [previewPage, setPreviewPage] = useState<number>(1);
   const PREVIEW_PAGE_SIZE = 50;
+
+  // Enterprise Live Upload Job Monitoring State (Phase 6 & Phase 7)
+  const [liveJob, setLiveJob] = useState<any | null>(null);
+  const [liveProgressPercent, setLiveProgressPercent] = useState<number>(0);
+  const [isJobExecuting, setIsJobExecuting] = useState<boolean>(false);
+  const [reconciliationReport, setReconciliationReport] = useState<any | null>(null);
+
   const [previewViewMode, setPreviewViewMode] = useState<"modules" | "table">(
     config.groupByField ? "modules" : "table"
   );
@@ -256,6 +272,10 @@ export function BulkUploadComponent({
     setPreviewViewMode(config.groupByField ? "modules" : "table");
     setExpandedModuleKeys({});
     setSelectedColumnKeys(config.columns.map((c) => c.key));
+    setLiveJob(null);
+    setLiveProgressPercent(0);
+    setIsJobExecuting(false);
+    setReconciliationReport(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -661,22 +681,16 @@ export function BulkUploadComponent({
           cleanHeader(mappedRow.type || "").includes("coding");
 
         if (isCodingProblem) {
-          // 1. Title validation & automatic deduplication (never drop questions)
+          // 1. Title validation (every valid row in spreadsheet is accepted and imported)
           const problemTitle = String(mappedRow.title || mappedRow.questionText || mappedRow.name || "").trim();
           if (!problemTitle) {
-            mappedRow.title = `Challenge ${rowNumber - 1}`;
+            errors.push({
+              fieldKey: "title",
+              fieldLabel: "Title",
+              message: `Title is required (Row #${rowNumber}).`,
+            });
           } else {
-            const cleanT = problemTitle.toLowerCase().trim();
-            if (seenTitles.has(cleanT)) {
-              const count = (seenTitles.get(cleanT) || 1) + 1;
-              seenTitles.set(cleanT, count);
-              mappedRow.title = `${problemTitle} (${count})`;
-            } else if (dbTitleSet.has(cleanT)) {
-              seenTitles.set(cleanT, 1);
-              mappedRow.title = `${problemTitle} (${rowNumber})`;
-            } else {
-              seenTitles.set(cleanT, 1);
-            }
+            mappedRow.title = problemTitle;
           }
 
           // 2. Description validation (with automatic robust fallback)
@@ -964,7 +978,7 @@ export function BulkUploadComponent({
   };
 
   // ─── 4. FINAL IMPORT EXECUTION ──────────────────────────────────────────────
-  const handleConfirmImport = (importOnlyValid: boolean = false) => {
+  const handleConfirmImport = async (importOnlyValid: boolean = false) => {
     const validRows = parsedRows.filter((r) => r.isValid);
     if (validRows.length === 0) {
       toast({
@@ -988,16 +1002,52 @@ export function BulkUploadComponent({
       payload = validRows.map((r, idx) => config.mapToPayload(r.rawRow, idx));
     }
 
-    onImport(payload);
-
-    toast({
-      title: "Bulk Import Initiated",
-      description: config.groupByField
-        ? `Imported ${payload.length} container(s) containing ${validRows.length} item(s).`
-        : `Imported ${payload.length} items for ${moduleTitle || config.displayName}.`,
-    });
-
-    handleModalClose();
+    if (isCodingModule) {
+      setCurrentStep("monitoring");
+      setIsJobExecuting(true);
+      setLiveProgressPercent(0);
+      try {
+        const result = await CodingProblemsService.executeBulkUploadJob(
+          payload,
+          uploadedFile?.name || "bulk_challenges.xlsx",
+          (job, percent) => {
+            setLiveJob(job);
+            setLiveProgressPercent(percent);
+          }
+        );
+        setLiveJob(result.job);
+        setReconciliationReport(result.reconciliationReport);
+        setLiveProgressPercent(100);
+        setIsJobExecuting(false);
+        toast({
+          title: "Upload Completed",
+          description: `Successfully imported ${result.job.successful_records} challenges.`,
+        });
+        if (onImport) {
+          onImport(payload);
+        }
+        // Auto-close modal automatically after upload reaches 100%
+        setTimeout(() => {
+          handleModalClose();
+        }, 1200);
+      } catch (jobErr: any) {
+        setIsJobExecuting(false);
+        toast({
+          title: "Upload Process Encountered Issues",
+          description: jobErr?.message || "Bulk upload process stopped.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      onImport(payload);
+      toast({
+        title: "Bulk Import Initiated",
+        description: config.groupByField
+          ? `Imported ${payload.length} container(s) containing ${validRows.length} item(s).`
+          : `Imported ${payload.length} items for ${moduleTitle || config.displayName}.`,
+      });
+      handleModalClose();
+    }
   };
 
   const totalCount = parsedRows.length;
@@ -1818,13 +1868,205 @@ export function BulkUploadComponent({
           )}
         </div>
       )}
+
+      {/* STEP 3: REAL-TIME MONITORING & RECONCILIATION (PHASE 6 & PHASE 7) */}
+      {currentStep === "monitoring" && (
+        <div className="space-y-6 pt-1">
+          {/* Header Card */}
+          <div className="p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900 uppercase">
+                    Execution Engine
+                  </span>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-normal">
+                    Bulk Challenge Upload Status
+                  </h4>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap pt-0.5">
+                  <span>File: <strong className="text-slate-700 dark:text-slate-300 font-medium">{uploadedFile?.name || "bulk_upload.xlsx"}</strong></span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider",
+                    isJobExecuting
+                      ? "bg-amber-100 text-amber-800 border border-amber-300 animate-pulse"
+                      : (liveJob?.failed_records || 0) === 0
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      : "bg-rose-100 text-rose-800 border border-rose-300"
+                  )}
+                >
+                  {isJobExecuting ? "PROCESSING" : liveJob?.upload_status || "COMPLETED"}
+                </span>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                <span>Database Batch Persistence Progress</span>
+                <span>{liveProgressPercent}%</span>
+              </div>
+              <div className="w-full h-3 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden border border-slate-200 dark:border-zinc-700">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-300 rounded-full",
+                    isJobExecuting
+                      ? "bg-blue-600 animate-pulse"
+                      : (liveJob?.failed_records || 0) === 0
+                      ? "bg-emerald-600"
+                      : "bg-blue-600"
+                  )}
+                  style={{ width: `${liveProgressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Phase 6 Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-center">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase">Total Questions</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
+                  {liveJob?.total_records || parsedRows.filter((r) => r.isValid).length}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-center">
+                <p className="text-[11px] font-semibold text-emerald-700 uppercase">Successfully Inserted</p>
+                <p className="text-xl font-bold text-emerald-600 mt-1">
+                  {liveJob?.successful_records || 0}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-center">
+                <p className="text-[11px] font-semibold text-rose-700 uppercase">Failed Records</p>
+                <p className="text-xl font-bold text-rose-600 mt-1">
+                  {liveJob?.failed_records || 0}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-center">
+                <p className="text-[11px] font-semibold text-blue-700 uppercase">Batch Status</p>
+                <p className="text-base font-bold text-blue-600 mt-1">
+                  {liveJob?.current_batch || 0} / {liveJob?.total_batches || 1}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Database Verification Status */}
+          <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                  Database Reconciliation Status
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  {isJobExecuting
+                    ? "Executing batch writes and verifying database constraints..."
+                    : reconciliationReport?.is_reconciled
+                    ? `Reconciliation Verified: Exactly ${reconciliationReport?.successful_records || liveJob?.successful_records} challenges confirmed written into database.`
+                    : "Reconciliation check completed."}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "px-3 py-1 rounded-lg text-xs font-bold",
+                  isJobExecuting
+                    ? "bg-amber-100 text-amber-800 border border-amber-300"
+                    : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                )}
+              >
+                {isJobExecuting ? "Verifying..." : "Verified in Database"}
+              </span>
+            </div>
+          </div>
+
+          {/* Failed Records Table (Phase 7 Recovery) */}
+          {liveJob && liveJob.failed_records > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h5 className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+                  Failed Records ({liveJob.failed_records})
+                </h5>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (liveJob?.id) {
+                      window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}`, "_blank");
+                    }
+                  }}
+                  className="h-8 text-xs font-semibold rounded-lg"
+                >
+                  Download Error Audit (.xlsx)
+                </Button>
+              </div>
+              <div className="max-h-48 overflow-y-auto rounded-xl border border-rose-200 bg-rose-50/30 p-2 text-xs">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-rose-200 font-bold text-rose-800">
+                      <th className="p-1.5">Row #</th>
+                      <th className="p-1.5">Title</th>
+                      <th className="p-1.5">Failure Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liveJob.records
+                      ?.filter((r: any) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION")
+                      .map((r: any) => (
+                        <tr key={r.id} className="border-b border-rose-100">
+                          <td className="p-1.5 font-mono">{r.source_row_number}</td>
+                          <td className="p-1.5 font-semibold">{r.title}</td>
+                          <td className="p-1.5 text-rose-700">{r.error_message || "Insert failed"}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
   // FOOTER ACTIONS (TEXT ONLY, STRICTLY NO ICONS)
   const footerActions = (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
-      {currentStep === "preview" ? (
+      {currentStep === "monitoring" ? (
+        <div className="flex items-center justify-between w-full">
+          <div>
+            {liveJob?.id && !isJobExecuting && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}`, "_blank");
+                }}
+                className="h-10 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Download Complete Audit Report (.xlsx)
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              disabled={isJobExecuting}
+              onClick={handleModalClose}
+              className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50"
+            >
+              {isJobExecuting ? "Importing Challenges..." : "Complete & View Challenges"}
+            </Button>
+          </div>
+        </div>
+      ) : currentStep === "preview" ? (
         <>
           <Button
             type="button"
@@ -1891,9 +2133,6 @@ export function BulkUploadComponent({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] sm:text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 sm:px-2.5 py-0.5 rounded border border-blue-200 dark:border-blue-900 uppercase shrink-0">
-                  Bulk Import Engine
-                </span>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
                   {moduleTitle ? `Bulk Upload — ${moduleTitle}` : `Bulk Upload — ${config.displayName}`}
                 </h3>
@@ -1907,9 +2146,10 @@ export function BulkUploadComponent({
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
                 <button
                   type="button"
-                  onClick={() => setCurrentStep("upload")}
+                  onClick={() => !isJobExecuting && setCurrentStep("upload")}
+                  disabled={isJobExecuting}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
+                    currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-50"
                   }`}
                 >
                   1. Upload & Validate
@@ -1918,6 +2158,7 @@ export function BulkUploadComponent({
                 <button
                   type="button"
                   onClick={() => {
+                    if (isJobExecuting) return;
                     if (parsedRows.length > 0) {
                       setCurrentStep("preview");
                     } else {
@@ -1927,23 +2168,33 @@ export function BulkUploadComponent({
                       });
                     }
                   }}
+                  disabled={isJobExecuting}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     currentStep === "preview"
                       ? "bg-blue-600 text-white shadow-xs"
                       : parsedRows.length > 0
-                      ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 disabled:opacity-50"
                       : "text-slate-400"
                   }`}
                 >
                   2. Preview & Import {parsedRows.length > 0 && `(${parsedRows.length})`}
                 </button>
+                {currentStep === "monitoring" && (
+                  <>
+                    <span className="text-slate-300">/</span>
+                    <span className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs">
+                      3. Monitoring & Results
+                    </span>
+                  </>
+                )}
               </div>
 
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleModalClose}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 cursor-pointer"
+                disabled={isJobExecuting}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </Button>
@@ -1952,7 +2203,8 @@ export function BulkUploadComponent({
             <button
               type="button"
               onClick={handleModalClose}
-              className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors"
+              disabled={isJobExecuting}
+              className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors disabled:opacity-50"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -1960,19 +2212,21 @@ export function BulkUploadComponent({
           </div>
 
           {/* Mobile Stepper Row */}
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl sm:hidden text-center">
+          <div className={`grid ${currentStep === "monitoring" ? "grid-cols-3" : "grid-cols-2"} gap-1 p-1 bg-slate-200/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl sm:hidden text-center`}>
             <button
               type="button"
-              onClick={() => setCurrentStep("upload")}
+              onClick={() => !isJobExecuting && setCurrentStep("upload")}
+              disabled={isJobExecuting}
               className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
-                currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-700 dark:text-zinc-400"
+                currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-700 dark:text-zinc-400 disabled:opacity-50"
               }`}
             >
-              1. Upload & Validate
+              1. Upload
             </button>
             <button
               type="button"
               onClick={() => {
+                if (isJobExecuting) return;
                 if (parsedRows.length > 0) {
                   setCurrentStep("preview");
                 } else {
@@ -1982,16 +2236,22 @@ export function BulkUploadComponent({
                   });
                 }
               }}
+              disabled={isJobExecuting}
               className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
                 currentStep === "preview"
                   ? "bg-blue-600 text-white shadow-xs"
                   : parsedRows.length > 0
-                  ? "text-blue-600 dark:text-blue-400 font-extrabold"
+                  ? "text-blue-600 dark:text-blue-400 font-extrabold disabled:opacity-50"
                   : "text-slate-400"
               }`}
             >
-              2. Preview {parsedRows.length > 0 ? `(${parsedRows.length})` : "& Import"}
+              2. Preview {parsedRows.length > 0 ? `(${parsedRows.length})` : ""}
             </button>
+            {currentStep === "monitoring" && (
+              <span className="py-1.5 px-2 rounded-lg text-[11px] font-bold bg-blue-600 text-white shadow-xs truncate">
+                3. Results
+              </span>
+            )}
           </div>
         </div>
 
@@ -2052,9 +2312,6 @@ export function BulkUploadComponent({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] sm:text-xs font-mono font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 sm:px-2.5 py-0.5 rounded border border-blue-200 dark:border-blue-900 uppercase shrink-0">
-                  Bulk Import
-                </span>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
                   {moduleTitle ? `Bulk Upload — ${moduleTitle}` : `Bulk Upload — ${config.displayName}`}
                 </h3>
@@ -2069,9 +2326,10 @@ export function BulkUploadComponent({
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
                 <button
                   type="button"
-                  onClick={() => setCurrentStep("upload")}
+                  onClick={() => !isJobExecuting && setCurrentStep("upload")}
+                  disabled={isJobExecuting}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
+                    currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 disabled:opacity-50"
                   }`}
                 >
                   1. Upload & Validate
@@ -2080,6 +2338,7 @@ export function BulkUploadComponent({
                 <button
                   type="button"
                   onClick={() => {
+                    if (isJobExecuting) return;
                     if (parsedRows.length > 0) {
                       setCurrentStep("preview");
                     } else {
@@ -2089,23 +2348,33 @@ export function BulkUploadComponent({
                       });
                     }
                   }}
+                  disabled={isJobExecuting}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     currentStep === "preview"
                       ? "bg-blue-600 text-white shadow-xs"
                       : parsedRows.length > 0
-                      ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                      ? "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 disabled:opacity-50"
                       : "text-slate-400"
                   }`}
                 >
                   2. Preview & Import {parsedRows.length > 0 && `(${parsedRows.length})`}
                 </button>
+                {currentStep === "monitoring" && (
+                  <>
+                    <span className="text-slate-300">/</span>
+                    <span className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs">
+                      3. Monitoring & Results
+                    </span>
+                  </>
+                )}
               </div>
 
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleModalClose}
-                className="h-8 px-3 text-xs font-semibold rounded-lg text-slate-600 cursor-pointer"
+                disabled={isJobExecuting}
+                className="h-8 px-3 text-xs font-semibold rounded-lg text-slate-600 cursor-pointer disabled:opacity-50"
               >
                 Close
               </Button>
@@ -2116,7 +2385,8 @@ export function BulkUploadComponent({
               <button
                 type="button"
                 onClick={handleModalClose}
-                className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors"
+                disabled={isJobExecuting}
+                className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-zinc-800 cursor-pointer shrink-0 transition-colors disabled:opacity-50"
                 aria-label="Close modal"
               >
                 <X className="h-5 w-5" />
@@ -2124,20 +2394,22 @@ export function BulkUploadComponent({
             )}
           </div>
 
-          {/* Mobile Stepper Row (Takes full width, perfectly responsive 2-column segmented pill) */}
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl sm:hidden text-center">
+          {/* Mobile Stepper Row (Takes full width, perfectly responsive segmented pill) */}
+          <div className={`grid ${currentStep === "monitoring" ? "grid-cols-3" : "grid-cols-2"} gap-1 p-1 bg-slate-200/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl sm:hidden text-center`}>
             <button
               type="button"
-              onClick={() => setCurrentStep("upload")}
+              onClick={() => !isJobExecuting && setCurrentStep("upload")}
+              disabled={isJobExecuting}
               className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
-                currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-700 dark:text-zinc-400"
+                currentStep === "upload" ? "bg-blue-600 text-white shadow-xs" : "text-slate-700 dark:text-zinc-400 disabled:opacity-50"
               }`}
             >
-              1. Upload & Validate
+              1. Upload
             </button>
             <button
               type="button"
               onClick={() => {
+                if (isJobExecuting) return;
                 if (parsedRows.length > 0) {
                   setCurrentStep("preview");
                 } else {
@@ -2147,20 +2419,26 @@ export function BulkUploadComponent({
                   });
                 }
               }}
+              disabled={isJobExecuting}
               className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all truncate cursor-pointer ${
                 currentStep === "preview"
                   ? "bg-blue-600 text-white shadow-xs"
                   : parsedRows.length > 0
-                  ? "text-blue-600 dark:text-blue-400 font-extrabold"
+                  ? "text-blue-600 dark:text-blue-400 font-extrabold disabled:opacity-50"
                   : "text-slate-400"
               }`}
             >
-              2. Preview {parsedRows.length > 0 ? `(${parsedRows.length})` : "& Import"}
+              2. Preview {parsedRows.length > 0 ? `(${parsedRows.length})` : ""}
             </button>
+            {currentStep === "monitoring" && (
+              <span className="py-1.5 px-2 rounded-lg text-[11px] font-bold bg-blue-600 text-white shadow-xs truncate">
+                3. Results
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 pb-12 sm:pb-8 space-y-6">
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 pb-12 sm:pb-8 space-y-6">
           {contentBody}
         </div>
 

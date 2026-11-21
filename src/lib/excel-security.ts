@@ -187,47 +187,40 @@ export async function safeParseSpreadsheet(
     }
 
     sheetNames = sheets.map((s) => s.sheet || "Sheet");
-    let primaryHeaders: string[] = [];
+    // Parse strictly the first/active sheet (sheets[0]) so that secondary sheets
+    // (such as previous upload history, drafts, or backups) are never merged into current upload.
+    const primarySheet = sheets[0];
+    const sheetData = (primarySheet?.data as any[][]) || [];
 
-    // Parse every sheet in the workbook to support multi-sheet workbooks
-    for (let sIdx = 0; sIdx < sheets.length; sIdx++) {
-      const sheetData = (sheets[sIdx]?.data as any[][]) || [];
-      if (!sheetData || sheetData.length === 0) continue;
+    if (!sheetData || sheetData.length === 0) {
+      throw new Error("The uploaded sheet contains no readable data.");
+    }
 
-      const sheetHeaderRow = sheetData[0] || [];
-      const sheetHeaders = sheetHeaderRow.map((h: any) => String(h || "").trim());
-      if (sIdx === 0) {
-        primaryHeaders = sheetHeaders;
-        rawGrid.push(...sheetData);
-      } else {
-        const isHeaderRepeated = sheetHeaders.some((h) => primaryHeaders.includes(h));
-        rawGrid.push(...(isHeaderRepeated ? sheetData.slice(1) : sheetData));
+    rawGrid = sheetData;
+    const headerRow = sheetData[0] || [];
+    const headers = headerRow.map((h: any) => String(h || "").trim());
+    const dataRows = sheetData.slice(1);
+
+    if (dataRows.length > opts.maxRows) {
+      throw new Error(`File contains too many rows (${dataRows.length}). Maximum allowed is ${opts.maxRows.toLocaleString()}.`);
+    }
+
+    for (const row of dataRows) {
+      const obj: Record<string, any> = {};
+      let hasData = false;
+      for (let c = 0; c < headers.length; c++) {
+        const headerKey = headers[c];
+        if (!headerKey || DANGEROUS_KEYS.has(headerKey.toLowerCase())) continue;
+        const cellVal = row[c];
+        if (cellVal !== null && cellVal !== undefined && cellVal !== "") {
+          hasData = true;
+          obj[headerKey] = typeof cellVal === "string" && cellVal.length > opts.maxCellLength ? cellVal.slice(0, opts.maxCellLength) : cellVal;
+        } else {
+          obj[headerKey] = "";
+        }
       }
-
-      const looksLikeHeader = sheetHeaders.some((h) =>
-        /title|problem|name|question|difficulty|type|code|test/i.test(h)
-      );
-
-      const effectiveHeaders = looksLikeHeader ? sheetHeaders : primaryHeaders;
-      const dataRows = looksLikeHeader ? sheetData.slice(1) : sheetData;
-
-      for (const row of dataRows) {
-        const obj: Record<string, any> = {};
-        let hasData = false;
-        for (let c = 0; c < effectiveHeaders.length; c++) {
-          const headerKey = effectiveHeaders[c];
-          if (!headerKey || DANGEROUS_KEYS.has(headerKey.toLowerCase())) continue;
-          const cellVal = row[c];
-          if (cellVal !== null && cellVal !== undefined && cellVal !== "") {
-            hasData = true;
-            obj[headerKey] = typeof cellVal === "string" && cellVal.length > opts.maxCellLength ? cellVal.slice(0, opts.maxCellLength) : cellVal;
-          } else {
-            obj[headerKey] = "";
-          }
-        }
-        if (hasData) {
-          rows.push(obj);
-        }
+      if (hasData) {
+        rows.push(obj);
       }
     }
   }

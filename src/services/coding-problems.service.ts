@@ -69,6 +69,119 @@ export class CodingProblemsService {
   }
 
   /**
+   * Enterprise Bulk Question Upload Execution with Job Tracking & Database Reconciliation
+   */
+  public static async executeBulkUploadJob(
+    problems: CodingProblem[],
+    filename: string = "bulk_challenges.xlsx",
+    onJobUpdate?: (job: any, progressPercent: number) => void
+  ): Promise<{ job: any; reconciliationReport: any; allSaved: CodingProblem[] }> {
+    if (!problems || problems.length === 0) {
+      throw new Error("No problem records provided for upload.");
+    }
+
+    const BATCH_SIZE = 50;
+    const totalRecords = problems.length;
+    const totalBatches = Math.ceil(totalRecords / BATCH_SIZE);
+
+    // 1. Initialize persistent upload job on backend
+    const initialRecords = problems.map((p, idx) => ({
+      source_row_number: idx + 1,
+      title: p.title || `Challenge ${idx + 1}`,
+      difficulty: p.difficulty || "medium",
+    }));
+
+    const createRes = await axios.post("/api/admin/coding/upload-job", {
+      action: "create",
+      original_filename: filename,
+      total_records: totalRecords,
+      total_batches: totalBatches,
+      initial_records: initialRecords,
+    });
+
+    const jobId = createRes.data?.job_id;
+    let currentJob = createRes.data?.job;
+
+    if (onJobUpdate && currentJob) {
+      onJobUpdate(currentJob, 0);
+    }
+
+    const allSaved: CodingProblem[] = [];
+
+    // 2. Process batches sequentially with live status updates
+    for (let bIdx = 0; bIdx < totalBatches; bIdx++) {
+      const start = bIdx * BATCH_SIZE;
+      const slice = problems.slice(start, start + BATCH_SIZE).map((p, sIdx) => ({
+        ...p,
+        source_row_number: start + sIdx + 1,
+      }));
+
+      try {
+        const batchRes = await axios.post(
+          "/api/admin/coding/upload-job",
+          {
+            action: "process_batch",
+            job_id: jobId,
+            batch_index: bIdx + 1,
+            problems: slice,
+          },
+          { timeout: 90000 }
+        );
+
+        currentJob = batchRes.data?.job || currentJob;
+      } catch (batchErr) {
+        console.warn(`[CodingProblemsService] Batch #${bIdx + 1} fallback handling:`, batchErr);
+        // Sub-chunk fallback for network glitches
+        for (let j = 0; j < slice.length; j += 5) {
+          const subSlice = slice.slice(j, j + 5);
+          try {
+            const subRes = await axios.post(
+              "/api/admin/coding/upload-job",
+              {
+                action: "process_batch",
+                job_id: jobId,
+                batch_index: bIdx + 1,
+                problems: subSlice,
+              },
+              { timeout: 60000 }
+            );
+            currentJob = subRes.data?.job || currentJob;
+          } catch (subErr) {
+            console.error("[CodingProblemsService] Sub-chunk failed:", subErr);
+          }
+        }
+      }
+
+      const percent = Math.round(((bIdx + 1) / totalBatches) * 100);
+      if (onJobUpdate && currentJob) {
+        onJobUpdate(currentJob, percent);
+      }
+    }
+
+    // 3. Final Database Reconciliation & Verification
+    const reconcileRes = await axios.post("/api/admin/coding/upload-job", {
+      action: "reconcile",
+      job_id: jobId,
+    });
+
+    const reconciliationReport = reconcileRes.data?.reconciliation_report;
+    const finalJob = reconcileRes.data?.job || currentJob;
+
+    if (onJobUpdate) {
+      onJobUpdate(finalJob, 100);
+    }
+
+    // Refresh memory cache
+    await this.fetchProblems();
+
+    return {
+      job: finalJob,
+      reconciliationReport,
+      allSaved,
+    };
+  }
+
+  /**
    * Save multiple problems directly in the database in bulk with automatic chunking and live progress reporting
    */
   public static async saveProblems(
@@ -77,55 +190,18 @@ export class CodingProblemsService {
   ): Promise<CodingProblem[]> {
     if (!problems || problems.length === 0) return [];
     try {
-      const BATCH_SIZE = 25; // 25 problems per batch ensures high speed without hitting timeouts or payload limits
-      const allSaved: CodingProblem[] = [];
-
-      for (let i = 0; i < problems.length; i += BATCH_SIZE) {
-        const slice = problems.slice(i, i + BATCH_SIZE);
-        try {
-          const res = await axios.post(
-            "/api/admin/coding",
-            { problems: slice },
-            { timeout: 90000, headers: { "Content-Type": "application/json" } }
-          );
-          const savedChunk = res.data?.problems || [];
-          allSaved.push(...savedChunk);
-        } catch (batchErr) {
-          console.warn(`Batch at offset ${i} failed, retrying in sub-chunks:`, batchErr);
-          for (let j = 0; j < slice.length; j += 5) {
-            const subSlice = slice.slice(j, j + 5);
-            try {
-              const res = await axios.post(
-                "/api/admin/coding",
-                { problems: subSlice },
-                { timeout: 60000, headers: { "Content-Type": "application/json" } }
-              );
-              const savedChunk = res.data?.problems || [];
-              allSaved.push(...savedChunk);
-            } catch (subErr) {
-              console.warn("Sub-chunk failed, saving individually:", subErr);
-              for (const single of subSlice) {
-                try {
-                  const res = await axios.post("/api/admin/coding", single, { timeout: 30000 });
-                  if (res.data?.problem) allSaved.push(res.data.problem);
-                  else if (res.data?.problems?.[0]) allSaved.push(res.data.problems[0]);
-                } catch (singleErr) {
-                  console.error(`Failed to save problem "${single.title}":`, singleErr);
-                }
-              }
-            }
+      const result = await this.executeBulkUploadJob(
+        problems,
+        "bulk_challenges.xlsx",
+        (job, percent) => {
+          if (onProgress) {
+            onProgress(job.successful_records + job.failed_records, job.total_records);
           }
         }
-
-        if (onProgress) {
-          onProgress(Math.min(i + BATCH_SIZE, problems.length), problems.length);
-        }
-      }
-
-      await this.fetchProblems();
-      return allSaved;
+      );
+      return result.allSaved;
     } catch (err) {
-      console.error("Failed to batch save problems via /api/admin/coding:", err);
+      console.error("Failed to batch save problems via upload job engine:", err);
       throw err;
     }
   }

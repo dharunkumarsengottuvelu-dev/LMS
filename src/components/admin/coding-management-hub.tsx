@@ -6,7 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/loading";
 import { cn, formatCleanProblemTitle } from "@/lib/utils";
 import { PageHeader } from "@/components/layouts/page-header";
-import { Search, Plus, UploadCloud, ChevronDown, Code2, Database } from "lucide-react";
+import {
+  Search,
+  Plus,
+  UploadCloud,
+  ChevronDown,
+  Code2,
+  Database,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -109,25 +120,10 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
   // Bulk Upload Modal state
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
-  const handleBulkImport = async (importedProblems: any[]) => {
-    if (!importedProblems || importedProblems.length === 0) return;
-    const total = importedProblems.length;
-    const toastId = toast.loading(`Importing ${total} coding problems... (0%)`);
-    try {
-      await CodingProblemsService.saveProblems(
-        importedProblems as CodingProblem[],
-        (processed, totalCount) => {
-          const percent = Math.round((processed / totalCount) * 100);
-          toast.loading(`Importing challenges: ${processed} of ${totalCount} (${percent}%)...`, { id: toastId });
-        }
-      );
-      toast.success(`Successfully imported all ${total} coding problems!`, { id: toastId });
-      setIsBulkUploadOpen(false);
-      await refreshProblems();
-    } catch (err: any) {
-      console.error("Bulk upload error:", err);
-      toast.error(err?.message || "Failed to bulk import coding problems.", { id: toastId });
-    }
+  const handleBulkImport = async () => {
+    // The bulk upload engine handles batch persistence and database verification internally.
+    // Refresh the challenges list to display all newly inserted records immediately.
+    await refreshProblems();
   };
 
   const refreshProblems = async () => {
@@ -182,6 +178,46 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
     });
   }, [problems, searchQuery, selectedDifficulty, selectedCategory]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
+
+  // Reset to page 1 whenever search, difficulty or category changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDifficulty, selectedCategory]);
+
+  const totalItems = filteredProblems.length;
+  const effectivePageSize = pageSize === -1 ? totalItems : pageSize;
+  const totalPages = Math.max(1, Math.ceil(totalItems / (effectivePageSize || 50)));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedProblems = useMemo(() => {
+    if (pageSize === -1) return filteredProblems;
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredProblems.slice(start, start + pageSize);
+  }, [filteredProblems, safeCurrentPage, pageSize]);
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [1];
+    if (safeCurrentPage > 3) {
+      pages.push("...");
+    }
+    const start = Math.max(2, safeCurrentPage - 1);
+    const end = Math.min(totalPages - 1, safeCurrentPage + 1);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (safeCurrentPage < totalPages - 2) {
+      pages.push("...");
+    }
+    pages.push(totalPages);
+    return pages;
+  };
+
   const handleOpenEdit = (problem: ExtendedCodingProblem | CodingProblem) => {
     const isSql =
       problem.category === "Databases" ||
@@ -219,12 +255,12 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
   };
 
   const toggleSelectAll = () => {
-    const allFilteredIds = filteredProblems.map((p) => p.id);
-    const allSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedProblemIds.includes(id));
-    if (allSelected) {
-      setSelectedProblemIds([]);
+    const pageIds = paginatedProblems.map((p) => p.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedProblemIds.includes(id));
+    if (allPageSelected) {
+      setSelectedProblemIds((prev) => prev.filter((id) => !pageIds.includes(id)));
     } else {
-      setSelectedProblemIds(allFilteredIds);
+      setSelectedProblemIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -494,10 +530,10 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                 <th className="py-2.5 px-3 w-10 text-center">
                   <input
                     type="checkbox"
-                    checked={filteredProblems.length > 0 && filteredProblems.every((p) => selectedProblemIds.includes(p.id))}
+                    checked={paginatedProblems.length > 0 && paginatedProblems.every((p) => selectedProblemIds.includes(p.id))}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-zinc-700 cursor-pointer"
-                    title="Select all problems"
+                    title="Select all problems on current page"
                   />
                 </th>
                 <th className="py-2.5 px-4 w-12 text-left whitespace-nowrap">#</th>
@@ -526,7 +562,8 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                   </td>
                 </tr>
               ) : (
-                filteredProblems.map((prob, idx) => {
+                paginatedProblems.map((prob, idx) => {
+                  const rowNumber = (safeCurrentPage - 1) * (pageSize === -1 ? 0 : pageSize) + idx + 1;
                   const testCases = prob.test_cases || (prob as any).testCases || [];
                   const isTcHidden = (tc: any) => Boolean(tc?.is_hidden || tc?.isHidden || String(tc?.is_hidden).toLowerCase() === "true" || String(tc?.type).toLowerCase() === "hidden");
                   const directHidden = (prob as any).hidden_test_cases || (prob as any).hiddenTestCases || (prob.starter_code as any)?.hidden_test_cases || [];
@@ -551,7 +588,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                         />
                       </td>
                       <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-400 whitespace-nowrap align-middle" title={prob.id}>
-                        #{idx + 1}
+                        #{rowNumber}
                       </td>
 
                       <td className="py-3.5 px-4 align-middle">
@@ -627,6 +664,111 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer Toolbar */}
+        {filteredProblems.length > 0 && (
+          <div className="bg-slate-50/70 border-t border-slate-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span>
+                Showing{" "}
+                <strong className="text-slate-900 font-semibold">
+                  {totalItems === 0 ? 0 : (safeCurrentPage - 1) * (pageSize === -1 ? 0 : pageSize) + 1}
+                </strong>{" "}
+                to{" "}
+                <strong className="text-slate-900 font-semibold">
+                  {pageSize === -1 ? totalItems : Math.min(safeCurrentPage * pageSize, totalItems)}
+                </strong>{" "}
+                of <strong className="text-slate-900 font-semibold">{totalItems}</strong> challenges
+              </span>
+
+              <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+                <span className="text-slate-500">Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="h-7 px-2 bg-white border border-slate-200 rounded text-xs font-medium text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                  <option value={-1}>All</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={safeCurrentPage === 1}
+                  title="First Page"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage === 1}
+                  title="Previous Page"
+                  className="h-8 px-2.5 flex items-center gap-1 rounded-lg border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none font-medium cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Previous</span>
+                </button>
+
+                <div className="flex items-center gap-1 mx-1">
+                  {getPageNumbers().map((p, pIdx) =>
+                    p === "..." ? (
+                      <span key={`dots-${pIdx}`} className="px-1 text-slate-400 font-semibold select-none">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={`page-${p}`}
+                        type="button"
+                        onClick={() => setCurrentPage(Number(p))}
+                        className={cn(
+                          "h-8 min-w-[32px] px-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer",
+                          safeCurrentPage === p
+                            ? "bg-blue-600 text-white shadow-2xs"
+                            : "border border-slate-200 text-slate-700 bg-white hover:bg-slate-100"
+                        )}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safeCurrentPage === totalPages}
+                  title="Next Page"
+                  className="h-8 px-2.5 flex items-center gap-1 rounded-lg border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none font-medium cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={safeCurrentPage === totalPages}
+                  title="Last Page"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -699,7 +841,10 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
       {bulkUploadType === "programming" ? (
         <BulkUploadModal
           isOpen={isBulkUploadOpen}
-          onClose={() => setIsBulkUploadOpen(false)}
+          onClose={() => {
+            setIsBulkUploadOpen(false);
+            refreshProblems();
+          }}
           moduleType="coding_problem"
           moduleTitle={role === "admin" ? "Challenges" : "Practice Challenges"}
           onImport={handleBulkImport}

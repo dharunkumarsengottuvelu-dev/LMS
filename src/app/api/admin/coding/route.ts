@@ -352,20 +352,31 @@ export async function POST(request: NextRequest) {
           const cleanProblemTitle = formatCleanProblemTitle(problem.title);
           const normalizedTitle = cleanProblemTitle.toLowerCase().trim();
 
-          // Only treat as existing record if it's a real UUID (36-char standard format)
+          // If bulk upload and problem with identical title already exists, skip insertion to prevent duplicates
+          if (isBulk && titleToIdMap.has(normalizedTitle)) {
+            return null;
+          }
+
+          // Only treat as existing record if it's a real UUID (36-char standard format) and NOT a bulk upload
           const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           const isRealUUID = Boolean(problem.id && UUID_REGEX.test(problem.id));
-          let problemId = isRealUUID ? problem.id : undefined;
+          let problemId = (!isBulk && isRealUUID) ? problem.id : undefined;
 
-          // Check if this problem already exists in DB by slug so we UPDATE it instead of creating a duplicate
-          if (!problemId && problem.slug && slugToIdMap.has(problem.slug)) {
+          // In bulk upload mode, EVERY row must be inserted as a new problem.
+          // NEVER match by slug to overwrite existing database problems during bulk upload.
+          if (!isBulk && !problemId && problem.slug && slugToIdMap.has(problem.slug)) {
             problemId = slugToIdMap.get(problem.slug);
           }
 
-          const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const baseSlug = (problem.slug || problem.title || "challenge")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") || "challenge";
+
+          const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
           const slug = problemId
             ? (problem.slug || baseSlug)
-            : `${baseSlug}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+            : `${baseSlug}-${uniqueSuffix}`;
 
           const isTcHidden = (tc: any): boolean => {
             if (!tc) return false;
