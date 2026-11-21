@@ -995,10 +995,8 @@ export function BulkUploadComponent({
   });
 
   const pageCount = Math.max(1, Math.ceil(displayedRows.length / PREVIEW_PAGE_SIZE));
-  const paginatedRows = useMemo(() => {
-    const start = (previewPage - 1) * PREVIEW_PAGE_SIZE;
-    return displayedRows.slice(start, start + PREVIEW_PAGE_SIZE);
-  }, [displayedRows, previewPage, PREVIEW_PAGE_SIZE]);
+  const startRowIdx = (previewPage - 1) * PREVIEW_PAGE_SIZE;
+  const paginatedRows = displayedRows.slice(startRowIdx, startRowIdx + PREVIEW_PAGE_SIZE);
 
   // ─── CONTENT BODY (STRICTLY NO ICONS) ───────────────────────────────────────
   const contentBody = (
