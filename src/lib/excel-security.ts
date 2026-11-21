@@ -142,55 +142,98 @@ export async function safeParseSpreadsheet(
 
   let rawGrid: any[][] = [];
   let sheetNames: string[] = ["Sheet1"];
+  const rows: Record<string, any>[] = [];
 
   if (fileName.endsWith(".csv")) {
     const text = await file.text();
     rawGrid = parseCsv(text);
     sheetNames = ["CSV"];
+
+    if (!rawGrid || rawGrid.length === 0) {
+      throw new Error("The uploaded spreadsheet contains no readable data.");
+    }
+
+    const headerRow = rawGrid[0] || [];
+    const headers = headerRow.map((h: any) => String(h || "").trim());
+    const dataRows = rawGrid.slice(1);
+    if (dataRows.length > opts.maxRows) {
+      throw new Error(`File contains too many rows (${dataRows.length}). Maximum allowed is ${opts.maxRows.toLocaleString()}.`);
+    }
+
+    for (const row of dataRows) {
+      const obj: Record<string, any> = {};
+      let hasData = false;
+      for (let c = 0; c < headers.length; c++) {
+        const headerKey = headers[c];
+        if (!headerKey || DANGEROUS_KEYS.has(headerKey.toLowerCase())) continue;
+        const cellVal = row[c];
+        if (cellVal !== null && cellVal !== undefined && cellVal !== "") {
+          hasData = true;
+          obj[headerKey] = typeof cellVal === "string" && cellVal.length > opts.maxCellLength ? cellVal.slice(0, opts.maxCellLength) : cellVal;
+        } else {
+          obj[headerKey] = "";
+        }
+      }
+      if (hasData) {
+        rows.push(obj);
+      }
+    }
   } else {
     // Modern, safe XLSX parsing without SheetJS
     const { default: readXlsxFile } = await import("read-excel-file/universal");
     const sheets = await readXlsxFile(file);
-    if (Array.isArray(sheets) && sheets.length > 0) {
-      sheetNames = sheets.map((s) => s.sheet || "Sheet");
-      rawGrid = (sheets[0]?.data as any[][]) || [];
+    if (!Array.isArray(sheets) || sheets.length === 0) {
+      throw new Error("The uploaded spreadsheet contains no readable data.");
     }
-  }
 
-  if (!rawGrid || rawGrid.length === 0) {
-    throw new Error("The uploaded spreadsheet contains no readable data.");
-  }
+    sheetNames = sheets.map((s) => s.sheet || "Sheet");
+    let primaryHeaders: string[] = [];
 
-  const headerRow = rawGrid[0] || [];
-  const headers = headerRow.map((h: any) => String(h || "").trim());
+    // Parse every sheet in the workbook to support multi-sheet workbooks
+    for (let sIdx = 0; sIdx < sheets.length; sIdx++) {
+      const sheetData = (sheets[sIdx]?.data as any[][]) || [];
+      if (!sheetData || sheetData.length === 0) continue;
 
-  const dataRows = rawGrid.slice(1);
-  if (dataRows.length > opts.maxRows) {
-    throw new Error(`File contains too many rows (${dataRows.length}). Maximum allowed is ${opts.maxRows.toLocaleString()}.`);
-  }
-
-  const rows: Record<string, any>[] = [];
-  for (const row of dataRows) {
-    const obj: Record<string, any> = {};
-    let hasData = false;
-    for (let c = 0; c < headers.length; c++) {
-      const headerKey = headers[c];
-      if (!headerKey || DANGEROUS_KEYS.has(headerKey.toLowerCase())) continue;
-      const cellVal = row[c];
-      if (cellVal !== null && cellVal !== undefined && cellVal !== "") {
-        hasData = true;
-        if (typeof cellVal === "string") {
-          obj[headerKey] = cellVal.length > opts.maxCellLength ? cellVal.slice(0, opts.maxCellLength) : cellVal;
-        } else {
-          obj[headerKey] = cellVal;
-        }
+      const sheetHeaderRow = sheetData[0] || [];
+      const sheetHeaders = sheetHeaderRow.map((h: any) => String(h || "").trim());
+      if (sIdx === 0) {
+        primaryHeaders = sheetHeaders;
+        rawGrid.push(...sheetData);
       } else {
-        obj[headerKey] = "";
+        const isHeaderRepeated = sheetHeaders.some((h) => primaryHeaders.includes(h));
+        rawGrid.push(...(isHeaderRepeated ? sheetData.slice(1) : sheetData));
+      }
+
+      const looksLikeHeader = sheetHeaders.some((h) =>
+        /title|problem|name|question|difficulty|type|code|test/i.test(h)
+      );
+
+      const effectiveHeaders = looksLikeHeader ? sheetHeaders : primaryHeaders;
+      const dataRows = looksLikeHeader ? sheetData.slice(1) : sheetData;
+
+      for (const row of dataRows) {
+        const obj: Record<string, any> = {};
+        let hasData = false;
+        for (let c = 0; c < effectiveHeaders.length; c++) {
+          const headerKey = effectiveHeaders[c];
+          if (!headerKey || DANGEROUS_KEYS.has(headerKey.toLowerCase())) continue;
+          const cellVal = row[c];
+          if (cellVal !== null && cellVal !== undefined && cellVal !== "") {
+            hasData = true;
+            obj[headerKey] = typeof cellVal === "string" && cellVal.length > opts.maxCellLength ? cellVal.slice(0, opts.maxCellLength) : cellVal;
+          } else {
+            obj[headerKey] = "";
+          }
+        }
+        if (hasData) {
+          rows.push(obj);
+        }
       }
     }
-    if (hasData) {
-      rows.push(obj);
-    }
+  }
+
+  if (rows.length > opts.maxRows) {
+    throw new Error(`File contains too many rows (${rows.length}). Maximum allowed is ${opts.maxRows.toLocaleString()}.`);
   }
 
   return { rows, sheetNames, rawRows: rawGrid };

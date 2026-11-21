@@ -82,13 +82,40 @@ export class CodingProblemsService {
 
       for (let i = 0; i < problems.length; i += BATCH_SIZE) {
         const slice = problems.slice(i, i + BATCH_SIZE);
-        const res = await axios.post(
-          "/api/admin/coding",
-          { problems: slice },
-          { timeout: 90000, headers: { "Content-Type": "application/json" } }
-        );
-        const savedChunk = res.data?.problems || [];
-        allSaved.push(...savedChunk);
+        try {
+          const res = await axios.post(
+            "/api/admin/coding",
+            { problems: slice },
+            { timeout: 90000, headers: { "Content-Type": "application/json" } }
+          );
+          const savedChunk = res.data?.problems || [];
+          allSaved.push(...savedChunk);
+        } catch (batchErr) {
+          console.warn(`Batch at offset ${i} failed, retrying in sub-chunks:`, batchErr);
+          for (let j = 0; j < slice.length; j += 5) {
+            const subSlice = slice.slice(j, j + 5);
+            try {
+              const res = await axios.post(
+                "/api/admin/coding",
+                { problems: subSlice },
+                { timeout: 60000, headers: { "Content-Type": "application/json" } }
+              );
+              const savedChunk = res.data?.problems || [];
+              allSaved.push(...savedChunk);
+            } catch (subErr) {
+              console.warn("Sub-chunk failed, saving individually:", subErr);
+              for (const single of subSlice) {
+                try {
+                  const res = await axios.post("/api/admin/coding", single, { timeout: 30000 });
+                  if (res.data?.problem) allSaved.push(res.data.problem);
+                  else if (res.data?.problems?.[0]) allSaved.push(res.data.problems[0]);
+                } catch (singleErr) {
+                  console.error(`Failed to save problem "${single.title}":`, singleErr);
+                }
+              }
+            }
+          }
+        }
 
         if (onProgress) {
           onProgress(Math.min(i + BATCH_SIZE, problems.length), problems.length);

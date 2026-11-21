@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     const { data: rawProblems, error: pError } = await supabase
       .from("coding_problems")
       .select("*")
+      .range(0, 9999)
       .order("created_at", { ascending: true });
 
     if (pError) {
@@ -53,11 +54,18 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Strict scope separation & module isolation:
-    // - "codelab": problems explicitly created for Code Lab / Challenges
+    // - "codelab": problems created for Challenges / Code Lab (all non-practice problems)
     // - "practice": problems created for Practice tracks
     // - "all": all problems
     const dbProblems = (rawProblems || []).filter((p: any) => {
-      const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+      let extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+      if (typeof p.starter_code === "string") {
+        try {
+          extra = JSON.parse(p.starter_code);
+        } catch {
+          extra = {};
+        }
+      }
       const isExplicitCodeLab =
         extra.is_codelab === true ||
         extra.isCodeLab === true ||
@@ -78,9 +86,8 @@ export async function GET(request: NextRequest) {
         return isPractice || extra.scope === "both";
       }
       if (scopeParam === "codelab") {
-        // Strict isolation: only explicitly assigned/created Challenge problems appear in Challenges.
-        // Practice problems NEVER appear in Challenges.
-        return isExplicitCodeLab && !isPractice;
+        // Challenges include all problems not designated for practice tracks, or explicitly tagged for codelab
+        return isExplicitCodeLab || !isPractice;
       }
       // "all": return all problems
       return true;
@@ -90,29 +97,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ problems: [] });
     }
 
-    // 2. Fetch all test cases for these problems
+    // 4. Fetch all test cases for these problems in batches of 100 to prevent request URL or max row overflow
     const problemIds = dbProblems.map((p: any) => p.id);
-    const { data: dbTestCases } = await supabase
-      .from("test_cases")
-      .select("*")
-      .in("problem_id", problemIds)
-      .order("order_index", { ascending: true });
-
     const testCasesByProblem = new Map<string, TestCase[]>();
-    (dbTestCases || []).forEach((tc: any) => {
-      const list = testCasesByProblem.get(tc.problem_id) || [];
-      list.push({
-        id: tc.id,
-        name: `Case ${list.length + 1}`,
-        input: tc.input,
-        expected_output: tc.expected_output,
-        is_hidden: !!tc.is_hidden,
-        order_index: tc.order_index,
-        weight: tc.weight || 10,
-        is_enabled: true,
+    for (let i = 0; i < problemIds.length; i += 100) {
+      const idChunk = problemIds.slice(i, i + 100);
+      const { data: dbTestCases } = await supabase
+        .from("test_cases")
+        .select("*")
+        .in("problem_id", idChunk)
+        .range(0, 9999)
+        .order("order_index", { ascending: true });
+
+      (dbTestCases || []).forEach((tc: any) => {
+        const list = testCasesByProblem.get(tc.problem_id) || [];
+        list.push({
+          id: tc.id,
+          name: tc.name || `Case ${list.length + 1}`,
+          input: tc.input,
+          expected_output: tc.expected_output,
+          is_hidden: !!tc.is_hidden,
+          order_index: tc.order_index,
+          weight: tc.weight || 10,
+          is_enabled: true,
+        });
+        testCasesByProblem.set(tc.problem_id, list);
       });
-      testCasesByProblem.set(tc.problem_id, list);
-    });
+    }
 
     // 3. Map DB rows to CodingProblem domain models
     const problems: CodingProblem[] = dbProblems.map((p: any, idx: number) => {
@@ -318,10 +329,28 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Pre-fetch matching titles in DB to prevent duplicate questions from being inserted
+      const titlesToCheck = chunk
+        .map((p: any) => formatCleanProblemTitle(p.title || "").trim())
+        .filter(Boolean);
+      const titleToIdMap = new Map<string, string>();
+      if (titlesToCheck.length > 0) {
+        const { data: matchTitles } = await supabase
+          .from("coding_problems")
+          .select("id, title")
+          .in("title", titlesToCheck);
+        (matchTitles || []).forEach((m: any) => {
+          if (m?.title && m?.id) {
+            titleToIdMap.set(formatCleanProblemTitle(m.title).toLowerCase().trim(), m.id);
+          }
+        });
+      }
+
       const chunkResults = await Promise.all(
         chunk.map(async (problem: any) => {
           if (!problem || !problem.title) return null;
           const cleanProblemTitle = formatCleanProblemTitle(problem.title);
+          const normalizedTitle = cleanProblemTitle.toLowerCase().trim();
 
           // Only treat as existing record if it's a real UUID (36-char standard format)
           const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -442,9 +471,12 @@ export async function POST(request: NextRequest) {
           const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
 
           const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
+          const isCodeLabScope = problemScope === "codelab" || problemScope === "both";
           const starterCodePayload = {
             ...extraStarter,
             scope: problemScope,
+            is_codelab: isCodeLabScope,
+            isCodeLab: isCodeLabScope,
             module_id: (problem as any).module_id || (problem as any).moduleId || undefined,
             assessment_id: (problem as any).assessment_id || undefined,
             templates: problem.templates || {},

@@ -46,6 +46,7 @@ export interface SqlBulkUploadModalProps {
   targetTrackId?: string;
   targetSubmoduleId?: string;
   onSwitchToProgramming?: () => void;
+  existingTitles?: string[];
 }
 
 export function SqlBulkUploadModal({
@@ -56,6 +57,7 @@ export function SqlBulkUploadModal({
   targetTrackId,
   targetSubmoduleId,
   onSwitchToProgramming,
+  existingTitles,
 }: SqlBulkUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -114,7 +116,11 @@ export function SqlBulkUploadModal({
     setPreviewProblem(null);
 
     try {
-      const res = await parseSqlBulkSpreadsheet(file);
+      const titlesToCheck =
+        existingTitles && existingTitles.length > 0
+          ? existingTitles
+          : CodingProblemsService.getAllProblems().map((p) => p.title);
+      const res = await parseSqlBulkSpreadsheet(file, { existingTitles: titlesToCheck });
       setParseResult(res);
       if (res.validQuestions.length > 0) {
         setPreviewProblem(res.validQuestions[0]);

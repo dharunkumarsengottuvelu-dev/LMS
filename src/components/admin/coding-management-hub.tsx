@@ -704,6 +704,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           moduleTitle={role === "admin" ? "Challenges" : "Practice Challenges"}
           onImport={handleBulkImport}
           onSwitchToSql={() => setBulkUploadType("sql")}
+          existingTitles={problems.map((p) => p.title)}
         />
       ) : (
         <SqlBulkUploadModal
@@ -714,6 +715,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             refreshProblems();
           }}
           onSwitchToProgramming={() => setBulkUploadType("programming")}
+          existingTitles={problems.map((p) => p.title)}
         />
       )}
     </div>

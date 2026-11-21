@@ -147,7 +147,10 @@ export function buildDMLFromTables(tables: SQLTableSchema[]): string {
 /**
  * Safely parses an uploaded 9-Sheet Excel or CSV file
  */
-export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResult> {
+export async function parseSqlBulkSpreadsheet(
+  file: File,
+  options?: { existingTitles?: string[] }
+): Promise<SqlImportResult> {
   validateSpreadsheetFile(file);
   const fileName = (file.name || "").toLowerCase();
   const errors: SqlImportRowError[] = [];
@@ -155,7 +158,7 @@ export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResu
   if (fileName.endsWith(".csv")) {
     const text = await file.text();
     const rawGrid = parseCsv(text);
-    return parseSqlCsvGrid(rawGrid, errors);
+    return parseSqlCsvGrid(rawGrid, errors, options);
   }
 
   // Modern safe XLSX parsing with read-excel-file
@@ -276,6 +279,12 @@ export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResu
     explanationText?: string;
   })[] = [];
 
+  const seenTitles = new Map<string, number>();
+  const seenQIds = new Map<string, number>();
+  const dbTitles = new Set<string>(
+    (options?.existingTitles || []).map((t) => clean(t).toLowerCase()).filter(Boolean)
+  );
+
   // Iterate over Questions rows and join
   for (let idx = 0; idx < questionsRows.length; idx++) {
     const rowNum = idx + 2; // +1 for 0-index, +1 for header
@@ -305,6 +314,29 @@ export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResu
         severity: "error",
       });
       continue;
+    }
+
+    let finalTitle = title;
+    let finalQId = qId;
+    const cleanT = title.toLowerCase().trim();
+    if (seenTitles.has(cleanT)) {
+      const count = (seenTitles.get(cleanT) || 1) + 1;
+      seenTitles.set(cleanT, count);
+      finalTitle = `${title} (${count})`;
+    } else if (dbTitles.has(cleanT)) {
+      seenTitles.set(cleanT, 1);
+      finalTitle = `${title} (${rowNum})`;
+    } else {
+      seenTitles.set(cleanT, 1);
+    }
+
+    const cleanId = qId.toLowerCase().trim();
+    if (seenQIds.has(cleanId)) {
+      const count = (seenQIds.get(cleanId) || 1) + 1;
+      seenQIds.set(cleanId, count);
+      finalQId = `${qId}_${count}`;
+    } else {
+      seenQIds.set(cleanId, 1);
     }
 
     if (!statement) {
@@ -486,7 +518,7 @@ export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResu
       .map((c) => `${clean(c.constraint_type) ? `[${clean(c.constraint_type)}] ` : ""}${clean(c.constraint_description)}`)
       .join("\n");
 
-    const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${qId.toLowerCase()}`;
+    const slug = `${finalTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${finalQId.toLowerCase()}`;
 
     const problem: CodingProblem & {
       rawTables?: SQLTableSchema[];
@@ -494,8 +526,8 @@ export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResu
       referenceSolution?: string;
       explanationText?: string;
     } = {
-      id: `sql_${qId}`,
-      title,
+      id: `sql_${finalQId}`,
+      title: finalTitle,
       slug,
       description: statement,
       difficulty,
@@ -566,13 +598,22 @@ export async function parseSqlBulkSpreadsheet(file: File): Promise<SqlImportResu
 /**
  * Fallback parser for single-sheet CSV files
  */
-function parseSqlCsvGrid(rawGrid: any[][], errors: SqlImportRowError[]): SqlImportResult {
+function parseSqlCsvGrid(
+  rawGrid: any[][],
+  errors: SqlImportRowError[],
+  options?: { existingTitles?: string[] }
+): SqlImportResult {
   if (!rawGrid || rawGrid.length < 2) {
     throw new Error("Uploaded CSV contains no readable data.");
   }
 
   const rows = sheetGridToObjects(rawGrid);
   const validQuestions: CodingProblem[] = [];
+  const seenTitles = new Map<string, number>();
+  const seenQIds = new Map<string, number>();
+  const dbTitles = new Set<string>(
+    (options?.existingTitles || []).map((t) => clean(t).toLowerCase()).filter(Boolean)
+  );
 
   rows.forEach((r, idx) => {
     const rowNum = idx + 2;
@@ -591,6 +632,29 @@ function parseSqlCsvGrid(rawGrid: any[][], errors: SqlImportRowError[]): SqlImpo
       return;
     }
 
+    let finalTitle = title;
+    let finalQId = qId;
+    const cleanT = title.toLowerCase().trim();
+    if (seenTitles.has(cleanT)) {
+      const count = (seenTitles.get(cleanT) || 1) + 1;
+      seenTitles.set(cleanT, count);
+      finalTitle = `${title} (${count})`;
+    } else if (dbTitles.has(cleanT)) {
+      seenTitles.set(cleanT, 1);
+      finalTitle = `${title} (${rowNum})`;
+    } else {
+      seenTitles.set(cleanT, 1);
+    }
+
+    const cleanId = qId.toLowerCase().trim();
+    if (seenQIds.has(cleanId)) {
+      const count = (seenQIds.get(cleanId) || 1) + 1;
+      seenQIds.set(cleanId, count);
+      finalQId = `${qId}_${count}`;
+    } else {
+      seenQIds.set(cleanId, 1);
+    }
+
     const engineRaw = clean(r.database_engine || "mysql").toLowerCase();
     const sqlEngine: SQLEngine = (VALID_ENGINES.has(engineRaw) ? engineRaw : "mysql") as SQLEngine;
     const comparisonMode: SQLComparisonMode =
@@ -600,11 +664,11 @@ function parseSqlCsvGrid(rawGrid: any[][], errors: SqlImportRowError[]): SqlImpo
     const seedSql = clean(r.seed_sql);
     const expectedJson = clean(r.expected_output_json || "[]");
 
-    const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${qId.toLowerCase()}`;
+    const slug = `${finalTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${finalQId.toLowerCase()}`;
 
     validQuestions.push({
-      id: `sql_${qId}`,
-      title,
+      id: `sql_${finalQId}`,
+      title: finalTitle,
       slug,
       description: statement,
       difficulty: (VALID_DIFFICULTIES.has(clean(r.difficulty).toLowerCase()) ? clean(r.difficulty).toLowerCase() : "medium") as Difficulty,

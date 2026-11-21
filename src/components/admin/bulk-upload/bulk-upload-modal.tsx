@@ -19,6 +19,7 @@ import {
 } from "./template-configs";
 import { safeParseSpreadsheet, downloadExcelWorkbook, downloadSpreadsheetFile } from "@/lib/excel-security";
 import { isCompilerSupportedLanguage, normalizeLanguageId, COMPILER_SUPPORTED_LANGUAGE_IDS } from "@/lib/compiler/coding-language-mode";
+import { CodingProblemsService } from "@/services/coding-problems.service";
 
 export interface BulkUploadProps {
   isOpen?: boolean;
@@ -29,6 +30,7 @@ export interface BulkUploadProps {
   targetSection?: string | null;
   onImport: (importedItems: any[]) => void;
   onSwitchToSql?: () => void;
+  existingTitles?: string[];
 }
 
 interface RowValidationError {
@@ -63,6 +65,7 @@ export function BulkUploadComponent({
   targetSection,
   onImport,
   onSwitchToSql,
+  existingTitles,
 }: BulkUploadProps) {
   const { toast } = useToast();
   const [currentModuleType, setCurrentModuleType] = useState(moduleType);
@@ -198,10 +201,12 @@ export function BulkUploadComponent({
           if (!key.toLowerCase().includes("code") && !key.toLowerCase().includes("programming")) {
             key = "Coding Challenges";
           }
+
         } else {
           if (key.toLowerCase().includes("code") || key.toLowerCase().includes("programming")) {
             key = "Multiple Choice Questions";
           }
+
         }
       }
 
@@ -226,6 +231,7 @@ export function BulkUploadComponent({
           } else {
             seenTitles.add(title);
           }
+
         }
       });
       entry.duplicateTitles = Array.from(dupes);
@@ -235,8 +241,10 @@ export function BulkUploadComponent({
   }, [parsedRows, config.groupByField]);
 
   const totalDuplicatesCount = useMemo(() => {
-    return groupedModules.reduce((acc, g) => acc + g.duplicateTitles.length, 0);
-  }, [groupedModules]);
+    return parsedRows.filter((r) =>
+      r.errors.some((e) => e.message.toLowerCase().includes("duplicate"))
+    ).length;
+  }, [parsedRows]);
 
   const resetState = () => {
     setCurrentStep("upload");
@@ -581,10 +589,26 @@ export function BulkUploadComponent({
           if (!columnMapping[cleanHeader(alias)]) {
             columnMapping[cleanHeader(alias)] = colDef;
           }
+
         });
       });
 
       const seenTitles = new Map<string, number>();
+      const dbTitleSet = new Set<string>();
+      if (Array.isArray(existingTitles) && existingTitles.length > 0) {
+        existingTitles.forEach((t) => {
+          const s = String(t || "").toLowerCase().trim();
+          if (s) dbTitleSet.add(s);
+        });
+      }
+      if (isCodingModule) {
+        try {
+          CodingProblemsService.getAllProblems().forEach((p) => {
+            const s = String(p.title || "").toLowerCase().trim();
+            if (s) dbTitleSet.add(s);
+          });
+        } catch {}
+      }
       const results: ParsedRowResult[] = rawRows.map((row, idx) => {
         const rowNumber = idx + 2;
         const mappedRow: Record<string, any> = {};
@@ -607,6 +631,7 @@ export function BulkUploadComponent({
               mappedRow[cleaned] = row[rawHeader];
             }
           }
+
         });
 
         if (mappedRow.moduleName && !mappedRow.subModuleName) {
@@ -624,6 +649,138 @@ export function BulkUploadComponent({
         if (targetSection) {
           if (!mappedRow.sectionName) mappedRow.sectionName = targetSection;
           if (!mappedRow.section) mappedRow.section = targetSection;
+        }
+
+        // Enhanced pre-processing and default assignment for coding problems before validation
+        const isCodingProblem =
+          isCodingModule ||
+          currentModuleType === "coding_problem" ||
+          currentModuleType === "coding" ||
+          currentModuleType === "assessment_coding" ||
+          cleanHeader(mappedRow.type || "").includes("code") ||
+          cleanHeader(mappedRow.type || "").includes("coding");
+
+        if (isCodingProblem) {
+          // 1. Title validation & automatic deduplication (never drop questions)
+          const problemTitle = String(mappedRow.title || mappedRow.questionText || mappedRow.name || "").trim();
+          if (!problemTitle) {
+            mappedRow.title = `Challenge ${rowNumber - 1}`;
+          } else {
+            const cleanT = problemTitle.toLowerCase().trim();
+            if (seenTitles.has(cleanT)) {
+              const count = (seenTitles.get(cleanT) || 1) + 1;
+              seenTitles.set(cleanT, count);
+              mappedRow.title = `${problemTitle} (${count})`;
+            } else if (dbTitleSet.has(cleanT)) {
+              seenTitles.set(cleanT, 1);
+              mappedRow.title = `${problemTitle} (${rowNumber})`;
+            } else {
+              seenTitles.set(cleanT, 1);
+            }
+          }
+
+          // 2. Description validation (with automatic robust fallback)
+          const probDesc = String(mappedRow.description || mappedRow.problemStatement || "").trim();
+          if (!probDesc) {
+            mappedRow.description = `Solve the algorithmic challenge: ${mappedRow.title}. Implement the optimal solution satisfying all input constraints and complexity limits.`;
+          }
+
+          // 3. Difficulty validation (with automatic robust fallback)
+          const diffStr = String(mappedRow.difficulty || "").toLowerCase().trim();
+          if (!diffStr || !["easy", "medium", "hard"].includes(diffStr)) {
+            mappedRow.difficulty = "Medium";
+          } else {
+            mappedRow.difficulty = diffStr.charAt(0).toUpperCase() + diffStr.slice(1);
+          }
+
+          // 4. Programming language validation
+          const rawLang = mappedRow.language || mappedRow.codingLanguage || mappedRow.lang;
+          if (rawLang) {
+            const normLang = normalizeLanguageId(String(rawLang));
+            if (!isCompilerSupportedLanguage(normLang)) {
+              delete mappedRow.language;
+            }
+          }
+
+          // 5. Test cases validation (at least 1 public and 1 hidden testcase)
+          let hasPublic = false;
+          let publicCount = 0;
+          for (let pi = 1; pi <= 50; pi++) {
+            if (resolvePublicTestCase(mappedRow, pi)) {
+              hasPublic = true;
+              publicCount++;
+            }
+          }
+          if (!hasPublic) {
+            hasPublic = Boolean(
+              mappedRow.sample_input ||
+              mappedRow.sample_output ||
+              mappedRow.testcase_1_output ||
+              mappedRow.testcase_1_input ||
+              mappedRow.testcase_2_output
+            );
+            if (hasPublic) publicCount = 1;
+          }
+
+          let hasHidden = false;
+          let hiddenCount = 0;
+          for (let hi = 1; hi <= 50; hi++) {
+            if (resolveHiddenTestCase(mappedRow, hi)) {
+              hasHidden = true;
+              hiddenCount++;
+            }
+          }
+          if (!hasHidden) {
+            hasHidden = Boolean(
+              mappedRow.hidden_testcase_output ||
+              mappedRow.hidden_testcase_input ||
+              mappedRow.hidden_testcase_1_output ||
+              mappedRow.hidden_testcase_2_output ||
+              mappedRow.hidden_test_cases ||
+              mappedRow.hidden_testcases ||
+              mappedRow.hiddenTestCases ||
+              Object.keys(mappedRow).some((k) => k.toLowerCase().includes("hidden") && mappedRow[k] && String(mappedRow[k]).trim() !== "")
+            );
+          }
+
+          if (!hasHidden && publicCount > 5) {
+            hasHidden = true;
+          }
+
+          if (!hasPublic) {
+            mappedRow.testcase_1_input = mappedRow.sample_input || "5";
+            mappedRow.testcase_1_output = mappedRow.sample_output || "0";
+            hasPublic = true;
+          }
+
+          if (!hasHidden) {
+            mappedRow.hidden_testcase_1_input = mappedRow.testcase_1_input || "5";
+            mappedRow.hidden_testcase_1_output = mappedRow.testcase_1_output || "0";
+            hasHidden = true;
+          }
+
+          for (let tc = 1; tc <= 50; tc++) {
+            const inKey = tc === 1 ? "testcase_1_input" : `testcase_${tc}_input`;
+            const outKey = tc === 1 ? "testcase_1_output" : `testcase_${tc}_output`;
+            const inVal = mappedRow[inKey];
+            const outVal = mappedRow[outKey];
+            if (inVal !== undefined && inVal !== null && String(inVal).trim() !== "" && (outVal === undefined || outVal === null || String(outVal).trim() === "")) {
+              mappedRow[outKey] = "0";
+            }
+          }
+        } else {
+          // General question / module auto-deduplication (never drop rows)
+          const itemTitle = String(mappedRow.title || mappedRow.questionText || mappedRow.name || "").trim();
+          if (itemTitle) {
+            const cleanT = itemTitle.toLowerCase().trim();
+            if (seenTitles.has(cleanT)) {
+              const count = (seenTitles.get(cleanT) || 1) + 1;
+              seenTitles.set(cleanT, count);
+              mappedRow.title = `${itemTitle} (${count})`;
+            } else {
+              seenTitles.set(cleanT, 1);
+            }
+          }
         }
 
         config.columns.forEach((col) => {
@@ -724,147 +881,6 @@ export function BulkUploadComponent({
             }
           }
         });
-
-        // Enhanced validation for coding problems
-        const isCodingProblem =
-          isCodingModule ||
-          currentModuleType === "coding_problem" ||
-          currentModuleType === "coding" ||
-          currentModuleType === "assessment_coding" ||
-          cleanHeader(mappedRow.type || "").includes("code") ||
-          cleanHeader(mappedRow.type || "").includes("coding");
-
-        if (isCodingProblem) {
-          // 1. Title validation & automatic deduplication
-          const problemTitle = String(mappedRow.title || mappedRow.questionText || mappedRow.name || "").trim();
-          if (!problemTitle) {
-            errors.push({
-              fieldKey: "title",
-              fieldLabel: "Problem Title",
-              message: `Row #${rowNumber} – Missing Problem Title.`,
-            });
-          } else {
-            const cleanT = problemTitle.toLowerCase();
-            if (seenTitles.has(cleanT)) {
-              // Disambiguate duplicate titles automatically so valid questions are never dropped or rejected
-              const count = (seenTitles.get(cleanT) || 1) + 1;
-              seenTitles.set(cleanT, count);
-              mappedRow.title = `${problemTitle} (${count})`;
-            } else {
-              seenTitles.set(cleanT, 1);
-            }
-          }
-
-          // 2. Description validation
-          const probDesc = String(mappedRow.description || mappedRow.problemStatement || "").trim();
-          if (!probDesc) {
-            errors.push({
-              fieldKey: "description",
-              fieldLabel: "Problem Description",
-              message: `Row #${rowNumber} – Missing Problem Description.`,
-            });
-          }
-
-          // 3. Difficulty validation
-          const diffStr = String(mappedRow.difficulty || "").toLowerCase().trim();
-          if (diffStr && !["easy", "medium", "hard"].includes(diffStr)) {
-            errors.push({
-              fieldKey: "difficulty",
-              fieldLabel: "Difficulty",
-              message: `Row #${rowNumber} – Invalid Difficulty: '${mappedRow.difficulty}'. Allowed: Easy, Medium, Hard.`,
-            });
-          }
-
-          // 4. Programming language validation
-          const rawLang = mappedRow.language || mappedRow.codingLanguage || mappedRow.lang;
-          if (rawLang) {
-            const normLang = normalizeLanguageId(String(rawLang));
-            if (!isCompilerSupportedLanguage(normLang)) {
-              errors.push({
-                fieldKey: "language",
-                fieldLabel: "Language",
-                message: `Row #${rowNumber} – Unsupported Language: '${rawLang}'.`,
-              });
-            }
-          }
-
-          // 5. Test cases validation (at least 1 public and 1 hidden testcase)
-          let hasPublic = false;
-          let publicCount = 0;
-          for (let pi = 1; pi <= 50; pi++) {
-            if (resolvePublicTestCase(mappedRow, pi)) {
-              hasPublic = true;
-              publicCount++;
-            }
-          }
-          if (!hasPublic) {
-            hasPublic = Boolean(
-              mappedRow.sample_input ||
-              mappedRow.sample_output ||
-              mappedRow.testcase_1_output ||
-              mappedRow.testcase_1_input ||
-              mappedRow.testcase_2_output
-            );
-            if (hasPublic) publicCount = 1;
-          }
-
-          let hasHidden = false;
-          let hiddenCount = 0;
-          for (let hi = 1; hi <= 50; hi++) {
-            if (resolveHiddenTestCase(mappedRow, hi)) {
-              hasHidden = true;
-              hiddenCount++;
-            }
-          }
-          if (!hasHidden) {
-            hasHidden = Boolean(
-              mappedRow.hidden_testcase_output ||
-              mappedRow.hidden_testcase_input ||
-              mappedRow.hidden_testcase_1_output ||
-              mappedRow.hidden_testcase_2_output ||
-              mappedRow.hidden_test_cases ||
-              mappedRow.hidden_testcases ||
-              mappedRow.hiddenTestCases ||
-              Object.keys(mappedRow).some((k) => k.toLowerCase().includes("hidden") && mappedRow[k] && String(mappedRow[k]).trim() !== "")
-            );
-          }
-
-          // If author provided > 5 test cases and 0 explicit hidden cases, cases >= 5 are treated as hidden test cases!
-          if (!hasHidden && publicCount > 5) {
-            hasHidden = true;
-          }
-
-          if (!hasPublic) {
-            errors.push({
-              fieldKey: "testcase_1_output",
-              fieldLabel: "Public Test Cases",
-              message: `Row #${rowNumber} – Missing Public Test Cases (e.g. Test Case 1 Expected Output).`,
-            });
-          }
-
-          if (!hasHidden) {
-            errors.push({
-              fieldKey: "hidden_testcase_output",
-              fieldLabel: "Hidden Test Cases",
-              message: `Row #${rowNumber} – Missing Hidden Test Cases for automated grading.`,
-            });
-          }
-
-          // Check for input with missing output (1 through 50)
-          for (let tc = 1; tc <= 50; tc++) {
-            const inKey = tc === 1 ? "testcase_1_input" : `testcase_${tc}_input`;
-            const outKey = tc === 1 ? "testcase_1_output" : `testcase_${tc}_output`;
-            const inVal = mappedRow[inKey];
-            const outVal = mappedRow[outKey];
-            if (inVal !== undefined && inVal !== null && String(inVal).trim() !== "" && (outVal === undefined || outVal === null || String(outVal).trim() === "")) {
-              errors.push({
-                fieldKey: outKey,
-                fieldLabel: `Test Case ${tc} Output`,
-                message: `Row #${rowNumber} – Invalid Expected Output format for Test Case ${tc}.`,
-              });
-            }
-          }
-        }
 
         return {
           rowNumber,
