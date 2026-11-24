@@ -404,14 +404,11 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-blue-500/60 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 text-blue-700 bg-blue-50/70 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50 rounded-md">
-                      Practice Tracks
-                    </Badge>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
+                      Practice Hub & Modules
+                    </h4>
                     <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:underline">Open</span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
-                    Practice Hub & Modules
-                  </h4>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
                     Solve structured sub-modules, coding questions, and MCQs.
                   </p>
@@ -423,14 +420,11 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 hover:border-emerald-500/60 shadow-2xs transition-all duration-200 h-full flex flex-col justify-between space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 text-emerald-700 bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50 rounded-md">
-                      Coding Sandbox
-                    </Badge>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
+                      Coding Lab & Challenges
+                    </h4>
                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 group-hover:underline">Launch</span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
-                    Coding Lab & Challenges
-                  </h4>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
                     Open coding workbench, test cases, and algorithmic problems.
                   </p>
