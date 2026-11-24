@@ -186,11 +186,20 @@ export async function safeParseSpreadsheet(
       throw new Error("The uploaded spreadsheet contains no readable data.");
     }
 
-    sheetNames = sheets.map((s) => s.sheet || "Sheet");
-    // Parse strictly the first/active sheet (sheets[0]) so that secondary sheets
-    // (such as previous upload history, drafts, or backups) are never merged into current upload.
-    const primarySheet = sheets[0];
-    const sheetData = (primarySheet?.data as any[][]) || [];
+    const firstItem = sheets[0];
+    let sheetData: any[][];
+    if (Array.isArray(firstItem)) {
+      // sheets is already a 2D grid of rows: [ [ 'Col1', 'Col2' ], [ 'Val1', 'Val2' ] ]
+      sheetData = sheets as unknown as any[][];
+      sheetNames = ["Sheet1"];
+    } else if (firstItem && Array.isArray((firstItem as any).data)) {
+      // sheets is an array of sheet objects: [ { sheet: 'Sheet1', data: [...] } ]
+      sheetData = (firstItem as any).data as any[][];
+      sheetNames = (sheets as any[]).map((s: any) => s.sheet || s.name || "Sheet");
+    } else {
+      sheetData = [];
+      sheetNames = ["Sheet1"];
+    }
 
     if (!sheetData || sheetData.length === 0) {
       throw new Error("The uploaded sheet contains no readable data.");

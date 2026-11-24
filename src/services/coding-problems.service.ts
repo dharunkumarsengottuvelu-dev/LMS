@@ -69,46 +69,89 @@ export class CodingProblemsService {
   }
 
   /**
-   * Enterprise Bulk Question Upload Execution with Job Tracking & Database Reconciliation
+   * Helper to execute HTTP POST requests with exponential backoff on retryable failures (rate limits, timeouts)
+   */
+  private static async postWithBackoff<T = any>(
+    url: string,
+    data: any,
+    options: { timeout?: number; maxRetries?: number; initialDelayMs?: number } = {}
+  ): Promise<T> {
+    const maxRetries = options.maxRetries ?? 3;
+    let delay = options.initialDelayMs ?? 1000;
+    const timeout = options.timeout ?? 60000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await axios.post(url, data, { timeout });
+        return res.data;
+      } catch (err: any) {
+        const status = err.response?.status;
+        const isRetryable =
+          err.code === "ECONNABORTED" ||
+          err.message?.includes("timeout") ||
+          status === 429 ||
+          status === 502 ||
+          status === 503 ||
+          status === 504 ||
+          !err.response;
+
+        if (attempt === maxRetries || !isRetryable) {
+          throw err;
+        }
+
+        console.warn(
+          `[CodingProblemsService] Request to ${url} failed (attempt ${attempt}/${maxRetries}). Retrying in ${delay}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+      }
+    }
+    throw new Error("Request failed after maximum backoff retries.");
+  }
+
+  /**
+   * Enterprise Bulk Question Upload Execution with Job Tracking, Exponential Backoff & Database Reconciliation
    */
   public static async executeBulkUploadJob(
     problems: CodingProblem[],
     filename: string = "bulk_challenges.xlsx",
-    onJobUpdate?: (job: any, progressPercent: number) => void
+    onJobUpdate?: (job: any, progressPercent: number) => void,
+    options: { batchSize?: number } = {}
   ): Promise<{ job: any; reconciliationReport: any; allSaved: CodingProblem[] }> {
     if (!problems || problems.length === 0) {
       throw new Error("No problem records provided for upload.");
     }
 
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = options.batchSize || (problems.length > 500 ? 50 : 25);
     const totalRecords = problems.length;
     const totalBatches = Math.ceil(totalRecords / BATCH_SIZE);
 
-    // 1. Initialize persistent upload job on backend
+    // 1. Initialize persistent upload job on backend with lightweight manifest
     const initialRecords = problems.map((p, idx) => ({
       source_row_number: idx + 1,
-      title: p.title || `Challenge ${idx + 1}`,
+      title: (p.title || `Challenge ${idx + 1}`).substring(0, 120),
       difficulty: p.difficulty || "medium",
     }));
 
-    const createRes = await axios.post("/api/admin/coding/upload-job", {
-      action: "create",
-      original_filename: filename,
-      total_records: totalRecords,
-      total_batches: totalBatches,
-      initial_records: initialRecords,
-    });
+    const createRes = await this.postWithBackoff<{ job_id: string; job: any }>(
+      "/api/admin/coding/upload-job",
+      {
+        action: "create",
+        original_filename: filename,
+        total_records: totalRecords,
+        total_batches: totalBatches,
+        initial_records: initialRecords,
+      }
+    );
 
-    const jobId = createRes.data?.job_id;
-    let currentJob = createRes.data?.job;
+    const jobId = createRes.job_id;
+    let currentJob = createRes.job;
 
     if (onJobUpdate && currentJob) {
       onJobUpdate(currentJob, 0);
     }
 
-    const allSaved: CodingProblem[] = [];
-
-    // 2. Process batches sequentially with live status updates
+    // 2. Process batches sequentially with exponential backoff & deterministic idempotency
     for (let bIdx = 0; bIdx < totalBatches; bIdx++) {
       const start = bIdx * BATCH_SIZE;
       const slice = problems.slice(start, start + BATCH_SIZE).map((p, sIdx) => ({
@@ -117,7 +160,7 @@ export class CodingProblemsService {
       }));
 
       try {
-        const batchRes = await axios.post(
+        const batchRes = await this.postWithBackoff<{ job: any }>(
           "/api/admin/coding/upload-job",
           {
             action: "process_batch",
@@ -125,17 +168,17 @@ export class CodingProblemsService {
             batch_index: bIdx + 1,
             problems: slice,
           },
-          { timeout: 90000 }
+          { timeout: 75000, maxRetries: 3, initialDelayMs: 1500 }
         );
 
-        currentJob = batchRes.data?.job || currentJob;
+        currentJob = batchRes.job || currentJob;
       } catch (batchErr) {
-        console.warn(`[CodingProblemsService] Batch #${bIdx + 1} fallback handling:`, batchErr);
-        // Sub-chunk fallback for network glitches
-        for (let j = 0; j < slice.length; j += 5) {
-          const subSlice = slice.slice(j, j + 5);
+        console.warn(`[CodingProblemsService] Batch #${bIdx + 1} primary failed, attempting isolated row recovery:`, batchErr);
+        // Fallback: Process smaller sub-chunks to isolate any individual problematic rows
+        for (let j = 0; j < slice.length; j += 10) {
+          const subSlice = slice.slice(j, j + 10);
           try {
-            const subRes = await axios.post(
+            const subRes = await this.postWithBackoff<{ job: any }>(
               "/api/admin/coding/upload-job",
               {
                 action: "process_batch",
@@ -143,29 +186,33 @@ export class CodingProblemsService {
                 batch_index: bIdx + 1,
                 problems: subSlice,
               },
-              { timeout: 60000 }
+              { timeout: 45000, maxRetries: 2, initialDelayMs: 1000 }
             );
-            currentJob = subRes.data?.job || currentJob;
+            currentJob = subRes.job || currentJob;
           } catch (subErr) {
             console.error("[CodingProblemsService] Sub-chunk failed:", subErr);
           }
         }
       }
 
-      const percent = Math.round(((bIdx + 1) / totalBatches) * 100);
+      const percent = Math.min(99, Math.round(((bIdx + 1) / totalBatches) * 100));
       if (onJobUpdate && currentJob) {
         onJobUpdate(currentJob, percent);
       }
     }
 
     // 3. Final Database Reconciliation & Verification
-    const reconcileRes = await axios.post("/api/admin/coding/upload-job", {
-      action: "reconcile",
-      job_id: jobId,
-    });
+    const reconcileRes = await this.postWithBackoff<{ reconciliation_report: any; job: any }>(
+      "/api/admin/coding/upload-job",
+      {
+        action: "reconcile",
+        job_id: jobId,
+      },
+      { timeout: 60000, maxRetries: 3 }
+    );
 
-    const reconciliationReport = reconcileRes.data?.reconciliation_report;
-    const finalJob = reconcileRes.data?.job || currentJob;
+    const reconciliationReport = reconcileRes.reconciliation_report;
+    const finalJob = reconcileRes.job || currentJob;
 
     if (onJobUpdate) {
       onJobUpdate(finalJob, 100);
@@ -177,7 +224,81 @@ export class CodingProblemsService {
     return {
       job: finalJob,
       reconciliationReport,
-      allSaved,
+      allSaved: [],
+    };
+  }
+
+  /**
+   * Resume an interrupted upload job without restarting from zero
+   */
+  public static async resumeBulkUploadJob(
+    jobId: string,
+    problems: CodingProblem[],
+    onJobUpdate?: (job: any, progressPercent: number) => void
+  ): Promise<{ job: any; reconciliationReport: any }> {
+    // 1. Fetch resume checkpoint and pending records from server
+    const resumeRes = await this.postWithBackoff<{
+      job: any;
+      pending_records: any[];
+      failed_records: any[];
+      checkpoint?: any;
+    }>("/api/admin/coding/upload-job", {
+      action: "resume",
+      job_id: jobId,
+    });
+
+    const pendingRowNumbers = new Set<number>(
+      (resumeRes.pending_records || []).map((r: any) => r.source_row_number)
+    );
+    const failedRowNumbers = new Set<number>(
+      (resumeRes.failed_records || []).map((r: any) => r.source_row_number)
+    );
+
+    const rowsToProcess = problems
+      .map((p, idx) => ({ ...p, source_row_number: idx + 1 }))
+      .filter((p) => pendingRowNumbers.has(p.source_row_number) || failedRowNumbers.has(p.source_row_number));
+
+    let currentJob = resumeRes.job;
+    const BATCH_SIZE = 25;
+    const totalBatches = Math.ceil(rowsToProcess.length / BATCH_SIZE);
+
+    for (let bIdx = 0; bIdx < totalBatches; bIdx++) {
+      const slice = rowsToProcess.slice(bIdx * BATCH_SIZE, (bIdx + 1) * BATCH_SIZE);
+      const batchRes = await this.postWithBackoff<{ job: any }>(
+        "/api/admin/coding/upload-job",
+        {
+          action: "process_batch",
+          job_id: jobId,
+          batch_index: bIdx + 1,
+          problems: slice,
+        },
+        { timeout: 60000 }
+      );
+      currentJob = batchRes.job || currentJob;
+
+      if (onJobUpdate && currentJob) {
+        const percent = Math.round(((bIdx + 1) / totalBatches) * 100);
+        onJobUpdate(currentJob, percent);
+      }
+    }
+
+    // Final reconciliation
+    const reconcileRes = await this.postWithBackoff<{ reconciliation_report: any; job: any }>(
+      "/api/admin/coding/upload-job",
+      {
+        action: "reconcile",
+        job_id: jobId,
+      }
+    );
+
+    if (onJobUpdate) {
+      onJobUpdate(reconcileRes.job, 100);
+    }
+    await this.fetchProblems();
+
+    return {
+      job: reconcileRes.job,
+      reconciliationReport: reconcileRes.reconciliation_report,
     };
   }
 
@@ -218,18 +339,15 @@ export class CodingProblemsService {
    * Delete a problem directly from the database
    */
   public static async deleteProblem(id: string): Promise<void> {
-    this.cachedProblems = this.cachedProblems.filter((p) => p.id !== id);
-
     try {
-      await axios.delete(`/api/admin/coding?id=${encodeURIComponent(id)}`);
-    } catch (err) {
-      console.warn("Failed to delete problem via API:", err);
-      try {
-        const supabase = createClient();
-        await (supabase as any).from("coding_problems").delete().eq("id", id);
-      } catch (e) {
-        console.error("Direct Supabase delete failed:", e);
+      const res = await axios.delete(`/api/admin/coding?id=${encodeURIComponent(id)}`);
+      if (res.data?.success !== true && res.status !== 200) {
+        throw new Error(res.data?.error || "Failed to delete problem from database.");
       }
+      this.cachedProblems = this.cachedProblems.filter((p) => p.id !== id);
+    } catch (err: any) {
+      console.error("Failed to delete problem via API:", err);
+      throw new Error(err?.response?.data?.error || err?.message || "Failed to delete problem from database.");
     }
   }
 
@@ -238,18 +356,22 @@ export class CodingProblemsService {
    */
   public static async deleteProblems(ids: string[]): Promise<void> {
     if (!ids || ids.length === 0) return;
-    this.cachedProblems = this.cachedProblems.filter((p) => !ids.includes(p.id));
 
+    const CHUNK_SIZE = 50;
     try {
-      await axios.delete(`/api/admin/coding?ids=${encodeURIComponent(ids.join(","))}`);
-    } catch (err) {
-      console.warn("Failed to batch delete problems via API:", err);
-      try {
-        const supabase = createClient();
-        await (supabase as any).from("coding_problems").delete().in("id", ids);
-      } catch (e) {
-        console.error("Direct Supabase batch delete failed:", e);
+      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const res = await axios.delete("/api/admin/coding", {
+          data: { ids: chunk },
+        });
+        if (res.data?.success !== true && res.status !== 200) {
+          throw new Error(res.data?.error || "Failed to batch delete problems from database.");
+        }
       }
+      this.cachedProblems = this.cachedProblems.filter((p) => !ids.includes(p.id));
+    } catch (err: any) {
+      console.error("Failed to batch delete problems via API:", err);
+      throw new Error(err?.response?.data?.error || err?.message || "Failed to delete selected problems from database.");
     }
   }
 }

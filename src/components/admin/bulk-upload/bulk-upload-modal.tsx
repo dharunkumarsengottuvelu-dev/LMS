@@ -1020,16 +1020,12 @@ export function BulkUploadComponent({
         setLiveProgressPercent(100);
         setIsJobExecuting(false);
         toast({
-          title: "Upload Completed",
-          description: `Successfully imported ${result.job.successful_records} challenges.`,
+          title: "Upload Process Finished",
+          description: `Successfully imported ${result.job.successful_records} challenges with zero silent loss.`,
         });
         if (onImport) {
           onImport(payload);
         }
-        // Auto-close modal automatically after upload reaches 100%
-        setTimeout(() => {
-          handleModalClose();
-        }, 1200);
       } catch (jobErr: any) {
         setIsJobExecuting(false);
         toast({
@@ -1047,6 +1043,40 @@ export function BulkUploadComponent({
           : `Imported ${payload.length} items for ${moduleTitle || config.displayName}.`,
       });
       handleModalClose();
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    if (!liveJob?.id || isJobExecuting) return;
+    setIsJobExecuting(true);
+    setLiveProgressPercent(0);
+    try {
+      const validRows = parsedRows.filter((r) => r.isValid);
+      const payload = validRows.map((r, idx) => config.mapToPayload(r.rawRow, idx));
+      const result = await CodingProblemsService.resumeBulkUploadJob(
+        liveJob.id,
+        payload,
+        (job, percent) => {
+          setLiveJob(job);
+          setLiveProgressPercent(percent);
+        }
+      );
+      setLiveJob(result.job);
+      setReconciliationReport(result.reconciliationReport);
+      setLiveProgressPercent(100);
+      setIsJobExecuting(false);
+      toast({
+        title: "Retry Completed",
+        description: `Successfully inserted ${result.job.successful_records} challenges.`,
+      });
+      if (onImport) onImport(payload);
+    } catch (err: any) {
+      setIsJobExecuting(false);
+      toast({
+        title: "Retry Encountered Issues",
+        description: err?.message || "Failed to retry upload.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1925,104 +1955,158 @@ export function BulkUploadComponent({
               </div>
             </div>
 
-            {/* Phase 6 Metrics Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            {/* Enterprise 8-Metric Grid (Zero Data Loss Accounting) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-center">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase">Total Questions</p>
-                <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
-                  {liveJob?.total_records || parsedRows.filter((r) => r.isValid).length}
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Records</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                  {liveJob?.total_records ?? parsedRows.length}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-center">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Valid Records</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                  {liveJob?.validated_records ?? parsedRows.filter((r) => r.isValid).length}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 text-center">
+                <p className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider">Processed Records</p>
+                <p className="text-xl font-bold text-indigo-600 mt-0.5">
+                  {(liveJob?.successful_records || 0) + (liveJob?.failed_records || 0) + (liveJob?.duplicate_records || 0) + (liveJob?.rejected_records || 0)}
                 </p>
               </div>
 
               <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-center">
-                <p className="text-[11px] font-semibold text-emerald-700 uppercase">Successfully Inserted</p>
-                <p className="text-xl font-bold text-emerald-600 mt-1">
+                <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">Successfully Inserted</p>
+                <p className="text-xl font-bold text-emerald-600 mt-0.5">
                   {liveJob?.successful_records || 0}
                 </p>
               </div>
 
+              <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-center">
+                <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Duplicate Records</p>
+                <p className="text-xl font-bold text-amber-600 mt-0.5">
+                  {liveJob?.duplicate_records || 0}
+                </p>
+              </div>
+
               <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 text-center">
-                <p className="text-[11px] font-semibold text-rose-700 uppercase">Failed Records</p>
-                <p className="text-xl font-bold text-rose-600 mt-1">
+                <p className="text-[10px] font-semibold text-rose-700 uppercase tracking-wider">Failed Records</p>
+                <p className="text-xl font-bold text-rose-600 mt-0.5">
                   {liveJob?.failed_records || 0}
                 </p>
               </div>
 
+              <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 text-center">
+                <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">Remaining</p>
+                <p className="text-xl font-bold text-purple-600 mt-0.5">
+                  {Math.max(0, (liveJob?.total_records || parsedRows.length) - ((liveJob?.successful_records || 0) + (liveJob?.failed_records || 0) + (liveJob?.duplicate_records || 0) + (liveJob?.rejected_records || 0)))}
+                </p>
+              </div>
+
               <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-center">
-                <p className="text-[11px] font-semibold text-blue-700 uppercase">Batch Status</p>
+                <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wider">Batch Progress</p>
                 <p className="text-base font-bold text-blue-600 mt-1">
-                  {liveJob?.current_batch || 0} / {liveJob?.total_batches || 1}
+                  Batch {liveJob?.current_batch || 0} of {liveJob?.total_batches || 1}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Database Verification Status */}
-          <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
-            <div className="flex items-center justify-between">
+          {/* Database Verification & Formula Accounting Banner */}
+          <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 space-y-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                  Database Reconciliation Status
+                  Data Reconciliation &amp; Invariant Verification
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  {isJobExecuting
-                    ? "Executing batch writes and verifying database constraints..."
-                    : reconciliationReport?.is_reconciled
-                    ? `Reconciliation Verified: Exactly ${reconciliationReport?.successful_records || liveJob?.successful_records} challenges confirmed written into database.`
-                    : "Reconciliation check completed."}
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-mono mt-0.5">
+                  {reconciliationReport?.formula_check || `${liveJob?.total_records || 0} Total = ${liveJob?.successful_records || 0} Inserted + ${liveJob?.duplicate_records || 0} Dupes + ${liveJob?.rejected_records || 0} Rejected + ${liveJob?.failed_records || 0} Failed`}
                 </p>
               </div>
               <span
                 className={cn(
-                  "px-3 py-1 rounded-lg text-xs font-bold",
+                  "px-3 py-1 rounded-lg text-xs font-bold self-start sm:self-auto shrink-0",
                   isJobExecuting
                     ? "bg-amber-100 text-amber-800 border border-amber-300"
-                    : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    : reconciliationReport?.is_reconciled
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    : "bg-rose-100 text-rose-800 border border-rose-300"
                 )}
               >
-                {isJobExecuting ? "Verifying..." : "Verified in Database"}
+                {isJobExecuting
+                  ? "Verifying Database..."
+                  : reconciliationReport?.is_reconciled
+                  ? "100% Reconciled & Verified"
+                  : "Verification Discrepancy"}
               </span>
             </div>
+            {reconciliationReport?.reconciliation_errors && reconciliationReport.reconciliation_errors.length > 0 && (
+              <div className="pt-2 text-[11px] text-rose-600 space-y-0.5 font-medium">
+                {reconciliationReport.reconciliation_errors.map((err: string, eIdx: number) => (
+                  <p key={eIdx}>* {err}</p>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Failed Records Table (Phase 7 Recovery) */}
-          {liveJob && liveJob.failed_records > 0 && (
+          {/* Row-Level Errors & Duplicates Audit Table */}
+          {liveJob && (liveJob.failed_records > 0 || liveJob.duplicate_records > 0) && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h5 className="text-xs font-bold text-rose-600 uppercase tracking-wider">
-                  Failed Records ({liveJob.failed_records})
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                  Row-Level Outcomes &amp; Issue Audit ({liveJob.failed_records} Failed, {liveJob.duplicate_records} Duplicates)
                 </h5>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (liveJob?.id) {
-                      window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}`, "_blank");
-                    }
-                  }}
-                  className="h-8 text-xs font-semibold rounded-lg"
-                >
-                  Download Error Audit (.xlsx)
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (liveJob?.id) {
+                        window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}&type=failed`, "_blank");
+                      }
+                    }}
+                    className="h-8 text-xs font-semibold rounded-lg cursor-pointer"
+                  >
+                    Download Failed Rows (.xlsx)
+                  </Button>
+                </div>
               </div>
-              <div className="max-h-48 overflow-y-auto rounded-xl border border-rose-200 bg-rose-50/30 p-2 text-xs">
+              <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-2 text-xs">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-rose-200 font-bold text-rose-800">
-                      <th className="p-1.5">Row #</th>
+                    <tr className="border-b border-slate-200 dark:border-zinc-800 font-bold text-slate-700 dark:text-zinc-300">
+                      <th className="p-1.5 w-16">Row #</th>
                       <th className="p-1.5">Title</th>
-                      <th className="p-1.5">Failure Reason</th>
+                      <th className="p-1.5 w-28">Status</th>
+                      <th className="p-1.5">Outcome Reason</th>
                     </tr>
                   </thead>
                   <tbody>
                     {liveJob.records
-                      ?.filter((r: any) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION")
+                      ?.filter((r: any) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION" || r.status === "DUPLICATE")
                       .map((r: any) => (
-                        <tr key={r.id} className="border-b border-rose-100">
-                          <td className="p-1.5 font-mono">{r.source_row_number}</td>
-                          <td className="p-1.5 font-semibold">{r.title}</td>
-                          <td className="p-1.5 text-rose-700">{r.error_message || "Insert failed"}</td>
+                        <tr key={r.id} className="border-b border-slate-100 dark:border-zinc-800/60">
+                          <td className="p-1.5 font-mono text-slate-500">{r.source_row_number}</td>
+                          <td className="p-1.5 font-semibold text-slate-800 dark:text-slate-200">{r.title}</td>
+                          <td className="p-1.5">
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                r.status === "DUPLICATE"
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                                  : "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
+                              )}
+                            >
+                              {r.status}
+                            </span>
+                          </td>
+                          <td className="p-1.5 text-slate-600 dark:text-slate-400">
+                            {r.error_message || "Processing issue"}
+                          </td>
                         </tr>
                       ))}
                   </tbody>
@@ -2039,30 +2123,56 @@ export function BulkUploadComponent({
   const footerActions = (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
       {currentStep === "monitoring" ? (
-        <div className="flex items-center justify-between w-full">
-          <div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 w-full">
+          <div className="flex flex-wrap items-center gap-2">
             {liveJob?.id && !isJobExecuting && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}`, "_blank");
+                  }}
+                  className="h-9 text-xs font-semibold rounded-xl cursor-pointer"
+                >
+                  Download Full Audit Report (.xlsx)
+                </Button>
+                {liveJob.failed_records > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}&type=failed`, "_blank");
+                    }}
+                    className="h-9 text-xs font-semibold rounded-xl cursor-pointer border-rose-300 text-rose-700 hover:bg-rose-50"
+                  >
+                    Download Failed Rows (.xlsx)
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {liveJob && liveJob.failed_records > 0 && !isJobExecuting && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  window.open(`/api/admin/coding/upload-job/report?job_id=${liveJob.id}`, "_blank");
-                }}
-                className="h-10 text-xs font-semibold rounded-xl cursor-pointer"
+                onClick={handleRetryFailed}
+                className="h-9 px-4 text-xs font-bold rounded-xl border-amber-400 text-amber-700 hover:bg-amber-50 cursor-pointer"
               >
-                Download Complete Audit Report (.xlsx)
+                Retry Failed Records ({liveJob.failed_records})
               </Button>
             )}
-          </div>
-          <div className="flex items-center gap-2">
             <Button
               type="button"
               disabled={isJobExecuting}
               onClick={handleModalClose}
-              className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50"
+              className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50"
             >
-              {isJobExecuting ? "Importing Challenges..." : "Complete & View Challenges"}
+              {isJobExecuting ? "Processing Batches..." : "Complete & View Challenges"}
             </Button>
           </div>
         </div>

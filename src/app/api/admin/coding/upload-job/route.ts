@@ -68,30 +68,109 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, job_id: job.id, job });
     }
 
-    // ─── ACTION 2: PROCESS BATCH WITH RECONCILIATION ────────────────────────────
+    // ─── ACTION 2: PROCESS BATCH WITH ATOMIC COMMIT & IDEMPOTENCY ──────────────
     if (action === "process_batch") {
       const { job_id, batch_index, problems } = body;
       if (!job_id || !Array.isArray(problems)) {
         return NextResponse.json({ error: "job_id and problems array are required." }, { status: 400 });
       }
 
-      // Concurrently process all records in the batch for maximum execution speed
+      // Pre-fetch titles in current batch to detect existing database records
+      const titlesToCheck = problems
+        .map((p: any) => formatCleanProblemTitle(p.title || `Challenge ${p.source_row_number || 1}`).trim())
+        .filter(Boolean);
+
+      const titleToExistingProblemMap = new Map<string, { id: string; slug: string }>();
+      if (titlesToCheck.length > 0) {
+        try {
+          const { data: matchTitles } = await supabase
+            .from("coding_problems")
+            .select("id, title, slug, starter_code")
+            .in("title", titlesToCheck);
+
+          (matchTitles || []).forEach((m: any) => {
+            if (m?.title && m?.id) {
+              const norm = formatCleanProblemTitle(m.title).toLowerCase().trim();
+              titleToExistingProblemMap.set(norm, { id: m.id, slug: m.slug });
+            }
+          });
+        } catch {}
+      }
+
+      const seenBatchTitles = new Set<string>();
+
+      // Concurrently process records in batch with atomic rollback on test case failure
       const processedResults = await Promise.all(
         problems.map(async (item: any, idx: number) => {
           const rowNumber = Number(item.source_row_number || item.rowNumber || idx + 1);
-          const title = formatCleanProblemTitle(item.title || `Challenge ${rowNumber}`);
+          const rawTitle = item.title !== undefined && item.title !== null ? item.title : "";
+          const cleanTitle = formatCleanProblemTitle(rawTitle).trim();
+          const normalizedTitle = cleanTitle.toLowerCase();
+
+          // 1. Validation check: Missing mandatory title
+          if (!cleanTitle) {
+            return {
+              source_row_number: rowNumber,
+              title: `Row #${rowNumber}`,
+              status: "FAILED_VALIDATION" as const,
+              error_message: "Mandatory field 'Title' is missing or blank.",
+              error_category: "VALIDATION_ERROR" as const,
+            };
+          }
+
+          // 2. Intra-batch duplicate check: Duplicate title within the same upload batch
+          if (seenBatchTitles.has(normalizedTitle)) {
+            return {
+              source_row_number: rowNumber,
+              title: cleanTitle,
+              status: "DUPLICATE" as const,
+              error_message: `Duplicate title in uploaded dataset: '${cleanTitle}'. Duplicate row skipped.`,
+              error_category: "DUPLICATE_CONFLICT" as const,
+            };
+          }
+          seenBatchTitles.add(normalizedTitle);
+
+          // 3. Deterministic Idempotency Key & Slug Generation
+          const idempotencyKey = BulkUploadJobManager.generateRowIdempotencyKey(job_id, rowNumber, cleanTitle);
+          const baseSlug = (item.slug || cleanTitle || "challenge")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") || "challenge";
+          const deterministicSlug = `${baseSlug}-${idempotencyKey}`;
 
           try {
-            const cleanTitle = title.trim();
+            // 4. Idempotency Check: Check if problem with this exact deterministic slug already exists
+            const { data: existingBySlug } = await supabase
+              .from("coding_problems")
+              .select("id, slug")
+              .eq("slug", deterministicSlug)
+              .maybeSingle();
 
-            const baseSlug = (item.slug || cleanTitle || "challenge")
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")
-              .replace(/^-|-$/g, "") || "challenge";
+            if (existingBySlug?.id) {
+              // Row was already successfully inserted in a previous run/retry: reuse it idempotently!
+              return {
+                source_row_number: rowNumber,
+                title: cleanTitle,
+                status: "INSERTED" as const,
+                problem_id: existingBySlug.id,
+              };
+            }
 
-            const uniqueSuffix = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}-${idx}`;
-            const slug = `${baseSlug}-${uniqueSuffix}`;
+            // 5. Database Pre-Existence Check: Check if problem with this exact title already existed in LMS
+            // If duplicate and not tagged for upsert, record it as DUPLICATE outcome without failing
+            const existingInDb = titleToExistingProblemMap.get(normalizedTitle);
+            if (existingInDb && !item.allow_overwrite) {
+              return {
+                source_row_number: rowNumber,
+                title: cleanTitle,
+                status: "DUPLICATE" as const,
+                problem_id: existingInDb.id,
+                error_message: `Problem with identical title already exists in LMS database (ID: ${existingInDb.id}).`,
+                error_category: "DUPLICATE_CONFLICT" as const,
+              };
+            }
 
+            // 6. Test Case Preparation
             const rawTestCases: any[] = Array.isArray(item.test_cases)
               ? [...item.test_cases]
               : Array.isArray(item.testCases)
@@ -127,6 +206,9 @@ export async function POST(request: NextRequest) {
               scope: "codelab",
               is_codelab: true,
               isCodeLab: true,
+              upload_job_id: job_id,
+              source_row_number: rowNumber,
+              idempotency_key: idempotencyKey,
               templates: item.templates || {},
               allowed_languages: item.allowed_languages || item.allowedLanguages || undefined,
               default_language: item.default_language || undefined,
@@ -143,12 +225,12 @@ export async function POST(request: NextRequest) {
               schema_sql: item.schema_sql || undefined,
             };
 
-            // 1. Insert problem into coding_problems table
+            // 7. Step 1 of Transaction: Insert problem record
             const { data: dbProblem, error: pErr } = await supabase
               .from("coding_problems")
               .insert({
                 title: cleanTitle,
-                slug,
+                slug: deterministicSlug,
                 description:
                   item.description ||
                   `Solve algorithmic challenge: ${cleanTitle}. Implement the optimal solution.`,
@@ -160,26 +242,33 @@ export async function POST(request: NextRequest) {
                 solution_code: item.solution_editorial || item.solution_code || null,
                 status: "published",
               })
-              .select()
+              .select("id")
               .single();
 
             if (pErr || !dbProblem?.id) {
-              throw new Error(pErr?.message || "Failed to insert coding problem into database.");
+              throw new Error(pErr?.message || "Failed to insert problem record into database.");
             }
 
-            // 2. Insert test cases if present
+            // 8. Step 2 of Transaction: Insert test cases atomically
             if (allTestCases.length > 0) {
-              try {
-                const tcRows = allTestCases.map((tc: any, oIdx: number) => ({
-                  problem_id: dbProblem.id,
-                  input: tc.input || "",
-                  expected_output: tc.expected_output || "",
-                  is_hidden: Boolean(tc.is_hidden),
-                  order_index: oIdx,
-                }));
-                await supabase.from("test_cases").insert(tcRows);
-              } catch (tcErr) {
-                console.warn("[Upload Job] Test case sync warning:", tcErr);
+              const tcRows = allTestCases.map((tc: any, oIdx: number) => ({
+                problem_id: dbProblem.id,
+                input: tc.input || "",
+                expected_output: tc.expected_output || "",
+                is_hidden: Boolean(tc.is_hidden),
+                order_index: oIdx,
+              }));
+
+              const { error: tcErr } = await supabase.from("test_cases").insert(tcRows);
+
+              if (tcErr) {
+                // ATOMIC ROLLBACK: Delete problem if test case insertion failed!
+                try {
+                  await supabase.from("coding_problems").delete().eq("id", dbProblem.id);
+                } catch (delErr) {
+                  console.error(`[Upload Job] Rollback deletion error for ${dbProblem.id}:`, delErr);
+                }
+                throw new Error(`Test case commit failed: ${tcErr.message}. Problem was rolled back.`);
               }
             }
 
@@ -190,10 +279,10 @@ export async function POST(request: NextRequest) {
               problem_id: dbProblem.id,
             };
           } catch (itemErr: any) {
-            console.error(`[Upload Job] Row #${rowNumber} failed:`, itemErr);
+            console.error(`[Upload Job] Row #${rowNumber} failed:`, itemErr?.message || itemErr);
             return {
               source_row_number: rowNumber,
-              title,
+              title: cleanTitle,
               status: "FAILED_DATABASE" as const,
               error_message: itemErr?.message || "Database insert error",
               error_category: "DATABASE_ERROR" as const,
@@ -214,7 +303,10 @@ export async function POST(request: NextRequest) {
         batch_index,
         processed_count: processedResults.length,
         successful_count: processedResults.filter((r) => r.status === "INSERTED").length,
-        failed_count: processedResults.filter((r) => r.status === "FAILED_DATABASE").length,
+        duplicate_count: processedResults.filter((r) => r.status === "DUPLICATE").length,
+        failed_count: processedResults.filter(
+          (r) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION"
+        ).length,
         job: updatedJob,
       });
     }
@@ -234,6 +326,36 @@ export async function POST(request: NextRequest) {
         reconciliation_report: report,
         job,
       });
+    }
+
+    // ─── ACTION 4: RESUME INTERRUPTED UPLOAD ───────────────────────────────────
+    if (action === "resume") {
+      const { job_id } = body;
+      if (!job_id) {
+        return NextResponse.json({ error: "job_id is required." }, { status: 400 });
+      }
+
+      const resumeData = await BulkUploadJobManager.getPendingOrFailedRecords(supabase, job_id);
+      const job = await BulkUploadJobManager.getJob(supabase, job_id);
+
+      return NextResponse.json({
+        success: true,
+        job,
+        checkpoint: resumeData.checkpoint,
+        pending_records: resumeData.pending,
+        failed_records: resumeData.failed,
+      });
+    }
+
+    // ─── ACTION 5: CANCEL UPLOAD JOB ───────────────────────────────────────────
+    if (action === "cancel") {
+      const { job_id } = body;
+      if (!job_id) {
+        return NextResponse.json({ error: "job_id is required." }, { status: 400 });
+      }
+
+      const job = await BulkUploadJobManager.cancelJob(supabase, job_id);
+      return NextResponse.json({ success: true, job });
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

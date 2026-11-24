@@ -1,14 +1,14 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 export type UploadJobStatus =
-  | "CREATED"
-  | "FILE_VALIDATING"
-  | "VALIDATED"
+  | "PENDING"
+  | "VALIDATING"
   | "QUEUED"
   | "PROCESSING"
-  | "PARTIALLY_COMPLETED"
+  | "PARTIALLY_FAILED"
   | "COMPLETED"
   | "COMPLETED_WITH_ERRORS"
   | "FAILED"
@@ -21,6 +21,7 @@ export type RecordProcessingStatus =
   | "FAILED_VALIDATION"
   | "FAILED_DATABASE"
   | "DUPLICATE"
+  | "REJECTED"
   | "RETRYING";
 
 export type ErrorCategory =
@@ -30,12 +31,14 @@ export type ErrorCategory =
   | "RATE_LIMIT"
   | "TIMEOUT"
   | "AUTH_ERROR"
-  | "SYSTEM_ERROR";
+  | "SYSTEM_ERROR"
+  | "CONSTRAINT_ERROR";
 
 export interface BulkUploadJobRecord {
   id: string;
   job_id: string;
   source_row_number: number;
+  idempotency_key: string;
   title: string;
   difficulty?: string;
   status: RecordProcessingStatus;
@@ -47,19 +50,31 @@ export interface BulkUploadJobRecord {
   updated_at: string;
 }
 
+export interface UploadCheckpoint {
+  batch_index: number;
+  completed_at: string;
+  processed_count: number;
+  successful_count: number;
+  failed_count: number;
+  duplicate_count: number;
+}
+
 export interface BulkUploadJob {
   id: string;
   original_filename: string;
   uploaded_by?: string;
   total_records: number;
   validated_records: number;
+  invalid_records: number;
   processing_records: number;
   successful_records: number;
   failed_records: number;
   duplicate_records: number;
+  rejected_records: number;
   current_batch: number;
   total_batches: number;
   upload_status: UploadJobStatus;
+  last_processed_checkpoint?: UploadCheckpoint;
   started_at: string;
   completed_at?: string;
   last_error?: string;
@@ -77,9 +92,11 @@ export interface ReconciliationReport {
   successful_records: number;
   failed_records: number;
   duplicate_records: number;
+  rejected_records: number;
   pending_records: number;
   database_verified_count: number;
   is_reconciled: boolean;
+  formula_check: string;
   reconciliation_errors: string[];
 }
 
@@ -93,15 +110,57 @@ if (!fs.existsSync(STORAGE_DIR)) {
 
 export class BulkUploadJobManager {
   private static inMemoryJobs = new Map<string, BulkUploadJob>();
+  private static jobMutexLocks = new Map<string, Promise<void>>();
 
   /**
-   * Persists job state to durable disk store
+   * Acquire an async mutex lock for a specific job to prevent race conditions during concurrent batch writes
+   */
+  private static async acquireLock(jobId: string): Promise<() => void> {
+    while (this.jobMutexLocks.has(jobId)) {
+      await this.jobMutexLocks.get(jobId);
+    }
+    let resolveLock: () => void = () => {};
+    const lockPromise = new Promise<void>((resolve) => {
+      resolveLock = resolve;
+    });
+    this.jobMutexLocks.set(jobId, lockPromise);
+
+    return () => {
+      this.jobMutexLocks.delete(jobId);
+      resolveLock();
+    };
+  }
+
+  /**
+   * Generates a deterministic idempotency key for each row to guarantee deduplication during retries
+   */
+  public static generateRowIdempotencyKey(jobId: string, rowNumber: number, title: string): string {
+    const cleanTitle = (title || "").trim().toLowerCase();
+    return crypto
+      .createHash("sha256")
+      .update(`${jobId}:${rowNumber}:${cleanTitle}`)
+      .digest("hex")
+      .substring(0, 16);
+  }
+
+  /**
+   * Persists job state to durable disk store using atomic rename
    */
   private static saveToDisk(job: BulkUploadJob): void {
     try {
       this.inMemoryJobs.set(job.id, job);
       const filePath = path.join(STORAGE_DIR, `${job.id}.json`);
-      fs.writeFileSync(filePath, JSON.stringify(job, null, 2), "utf8");
+      const tempPath = path.join(STORAGE_DIR, `${job.id}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`);
+
+      fs.writeFileSync(tempPath, JSON.stringify(job, null, 2), "utf8");
+      // Atomic replace
+      try {
+        fs.renameSync(tempPath, filePath);
+      } catch {
+        // Fallback for Windows cross-volume or lock edge cases
+        fs.copyFileSync(tempPath, filePath);
+        try { fs.unlinkSync(tempPath); } catch {}
+      }
     } catch (err) {
       console.warn("[BulkUploadJobManager] Failed to persist job to disk:", err);
     }
@@ -142,17 +201,21 @@ export class BulkUploadJobManager {
     const jobId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    const records: BulkUploadJobRecord[] = params.initial_records.map((r) => ({
-      id: crypto.randomUUID(),
-      job_id: jobId,
-      source_row_number: r.source_row_number,
-      title: r.title,
-      difficulty: r.difficulty || "medium",
-      status: "PENDING",
-      retry_count: 0,
-      created_at: now,
-      updated_at: now,
-    }));
+    const records: BulkUploadJobRecord[] = params.initial_records.map((r) => {
+      const idempotency_key = this.generateRowIdempotencyKey(jobId, r.source_row_number, r.title);
+      return {
+        id: crypto.randomUUID(),
+        job_id: jobId,
+        source_row_number: r.source_row_number,
+        idempotency_key,
+        title: r.title,
+        difficulty: r.difficulty || "medium",
+        status: "PENDING",
+        retry_count: 0,
+        created_at: now,
+        updated_at: now,
+      };
+    });
 
     const job: BulkUploadJob = {
       id: jobId,
@@ -160,10 +223,12 @@ export class BulkUploadJobManager {
       uploaded_by: params.uploaded_by,
       total_records: params.total_records,
       validated_records: params.total_records,
+      invalid_records: 0,
       processing_records: 0,
       successful_records: 0,
       failed_records: 0,
       duplicate_records: 0,
+      rejected_records: 0,
       current_batch: 0,
       total_batches: params.total_batches,
       upload_status: "QUEUED",
@@ -178,9 +243,9 @@ export class BulkUploadJobManager {
     // 1. Durable disk write
     this.saveToDisk(job);
 
-    // 2. Best-effort Supabase database persistence
+    // 2. Best-effort Supabase database persistence if table exists
     try {
-      await supabase.from("bulk_upload_jobs").insert({
+      const { error: jobErr } = await supabase.from("bulk_upload_jobs").insert({
         id: job.id,
         original_filename: job.original_filename,
         uploaded_by: job.uploaded_by,
@@ -192,7 +257,7 @@ export class BulkUploadJobManager {
         metadata: job.metadata,
       });
 
-      if (records.length > 0) {
+      if (!jobErr && records.length > 0) {
         const recordRows = records.map((r) => ({
           id: r.id,
           job_id: r.job_id,
@@ -202,14 +267,11 @@ export class BulkUploadJobManager {
           status: r.status,
           created_at: r.created_at,
         }));
-        // Insert in safe blocks of 100
         for (let i = 0; i < recordRows.length; i += 100) {
           await supabase.from("bulk_upload_job_records").insert(recordRows.slice(i, i + 100));
         }
       }
-    } catch (dbErr) {
-      console.warn("[BulkUploadJobManager] Supabase job table write notice (using durable fallback):", dbErr);
-    }
+    } catch {}
 
     return job;
   }
@@ -245,7 +307,7 @@ export class BulkUploadJobManager {
   }
 
   /**
-   * Updates record states and recalculates live job aggregates
+   * Updates record states and recalculates live job aggregates with mutex protection
    */
   public static async updateBatchResults(
     supabase: SupabaseClient,
@@ -262,199 +324,321 @@ export class BulkUploadJobManager {
       }>;
     }
   ): Promise<BulkUploadJob> {
-    const job = (await this.getJob(supabase, params.job_id)) || this.loadFromDisk(params.job_id);
-    if (!job) {
-      throw new Error(`Upload job ${params.job_id} not found.`);
-    }
+    const releaseLock = await this.acquireLock(params.job_id);
 
-    const now = new Date().toISOString();
-    job.current_batch = Math.max(job.current_batch, params.batch_index);
-    job.upload_status = "PROCESSING";
-    job.updated_at = now;
-
-    const recordMap = new Map<number, BulkUploadJobRecord>();
-    job.records.forEach((r) => recordMap.set(r.source_row_number, r));
-
-    for (const pr of params.processed_records) {
-      const existing = recordMap.get(pr.source_row_number);
-      if (existing) {
-        existing.status = pr.status;
-        existing.problem_id = pr.problem_id || existing.problem_id;
-        existing.error_message = pr.error_message;
-        existing.error_category = pr.error_category;
-        existing.updated_at = now;
-      } else {
-        const newRecord: BulkUploadJobRecord = {
-          id: crypto.randomUUID(),
-          job_id: job.id,
-          source_row_number: pr.source_row_number,
-          title: pr.title,
-          status: pr.status,
-          problem_id: pr.problem_id,
-          error_message: pr.error_message,
-          error_category: pr.error_category,
-          retry_count: 0,
-          created_at: now,
-          updated_at: now,
-        };
-        job.records.push(newRecord);
-        recordMap.set(pr.source_row_number, newRecord);
-      }
-    }
-
-    // Recalculate metrics from source of truth records
-    job.successful_records = job.records.filter((r) => r.status === "INSERTED").length;
-    job.failed_records = job.records.filter(
-      (r) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION"
-    ).length;
-    job.duplicate_records = job.records.filter((r) => r.status === "DUPLICATE").length;
-    job.processing_records = job.records.filter(
-      (r) => r.status === "PROCESSING" || r.status === "RETRYING"
-    ).length;
-
-    // Save to durable disk
-    this.saveToDisk(job);
-
-    // Sync to Supabase
     try {
-      await supabase
-        .from("bulk_upload_jobs")
-        .update({
-          current_batch: job.current_batch,
-          successful_records: job.successful_records,
-          failed_records: job.failed_records,
-          duplicate_records: job.duplicate_records,
-          processing_records: job.processing_records,
-          upload_status: job.upload_status,
-          updated_at: job.updated_at,
-        })
-        .eq("id", job.id);
+      const job = (await this.getJob(supabase, params.job_id)) || this.loadFromDisk(params.job_id);
+      if (!job) {
+        throw new Error(`Upload job ${params.job_id} not found.`);
+      }
+
+      const now = new Date().toISOString();
+      job.current_batch = Math.max(job.current_batch, params.batch_index);
+      job.upload_status = "PROCESSING";
+      job.updated_at = now;
+
+      const recordMap = new Map<number, BulkUploadJobRecord>();
+      job.records.forEach((r) => recordMap.set(r.source_row_number, r));
 
       for (const pr of params.processed_records) {
-        await supabase
-          .from("bulk_upload_job_records")
-          .update({
+        const existing = recordMap.get(pr.source_row_number);
+        if (existing) {
+          existing.status = pr.status;
+          existing.problem_id = pr.problem_id || existing.problem_id;
+          existing.error_message = pr.error_message;
+          existing.error_category = pr.error_category;
+          existing.updated_at = now;
+        } else {
+          const newRecord: BulkUploadJobRecord = {
+            id: crypto.randomUUID(),
+            job_id: job.id,
+            source_row_number: pr.source_row_number,
+            idempotency_key: this.generateRowIdempotencyKey(job.id, pr.source_row_number, pr.title),
+            title: pr.title,
             status: pr.status,
             problem_id: pr.problem_id,
             error_message: pr.error_message,
             error_category: pr.error_category,
+            retry_count: 0,
+            created_at: now,
             updated_at: now,
-          })
-          .eq("job_id", job.id)
-          .eq("source_row_number", pr.source_row_number);
+          };
+          job.records.push(newRecord);
+          recordMap.set(pr.source_row_number, newRecord);
+        }
       }
-    } catch (dbErr) {
-      console.warn("[BulkUploadJobManager] Supabase sync notice:", dbErr);
-    }
 
-    return job;
+      // Recalculate metrics strictly from source-of-truth records
+      job.successful_records = job.records.filter((r) => r.status === "INSERTED").length;
+      job.failed_records = job.records.filter(
+        (r) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION"
+      ).length;
+      job.duplicate_records = job.records.filter((r) => r.status === "DUPLICATE").length;
+      job.rejected_records = job.records.filter((r) => r.status === "REJECTED").length;
+      job.processing_records = job.records.filter(
+        (r) => r.status === "PROCESSING" || r.status === "RETRYING"
+      ).length;
+
+      // Update checkpoint for seamless resume
+      job.last_processed_checkpoint = {
+        batch_index: params.batch_index,
+        completed_at: now,
+        processed_count: job.successful_records + job.failed_records + job.duplicate_records + job.rejected_records,
+        successful_count: job.successful_records,
+        failed_count: job.failed_records,
+        duplicate_count: job.duplicate_records,
+      };
+
+      // Save to durable disk
+      this.saveToDisk(job);
+
+      // Best-effort sync to Supabase if tables exist
+      try {
+        await supabase
+          .from("bulk_upload_jobs")
+          .update({
+            current_batch: job.current_batch,
+            successful_records: job.successful_records,
+            failed_records: job.failed_records,
+            duplicate_records: job.duplicate_records,
+            processing_records: job.processing_records,
+            upload_status: job.upload_status,
+            updated_at: job.updated_at,
+          })
+          .eq("id", job.id);
+
+        for (const pr of params.processed_records) {
+          await supabase
+            .from("bulk_upload_job_records")
+            .update({
+              status: pr.status,
+              problem_id: pr.problem_id,
+              error_message: pr.error_message,
+              error_category: pr.error_category,
+              updated_at: now,
+            })
+            .eq("job_id", job.id)
+            .eq("source_row_number", pr.source_row_number);
+        }
+      } catch {}
+
+      return job;
+    } finally {
+      releaseLock();
+    }
   }
 
   /**
-   * Performs Phase 8 Database Reconciliation & Final Verification
+   * Retrieves pending or failed records from a job for seamless resumption without restarting from zero
    */
-  public static async reconcileJob(
+  public static async getPendingOrFailedRecords(
     supabase: SupabaseClient,
     jobId: string
-  ): Promise<ReconciliationReport> {
+  ): Promise<{ pending: BulkUploadJobRecord[]; failed: BulkUploadJobRecord[]; checkpoint?: UploadCheckpoint }> {
     const job = (await this.getJob(supabase, jobId)) || this.loadFromDisk(jobId);
     if (!job) {
       throw new Error(`Upload job ${jobId} not found.`);
     }
 
-    const insertedProblemIds = job.records
-      .filter((r) => r.status === "INSERTED" && r.problem_id)
-      .map((r) => r.problem_id as string);
-
-    let databaseVerifiedCount = 0;
-    if (insertedProblemIds.length > 0) {
-      for (let i = 0; i < insertedProblemIds.length; i += 100) {
-        const chunk = insertedProblemIds.slice(i, i + 100);
-        const { count, error } = await supabase
-          .from("coding_problems")
-          .select("id", { count: "exact", head: true })
-          .in("id", chunk);
-
-        if (!error && count !== null) {
-          databaseVerifiedCount += count;
-        } else {
-          // If query fails, credit the tracked count
-          databaseVerifiedCount += chunk.length;
-        }
-      }
-    }
-
-    const successful = job.records.filter((r) => r.status === "INSERTED").length;
-    const failed = job.records.filter(
-      (r) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION"
-    ).length;
-    const duplicates = job.records.filter((r) => r.status === "DUPLICATE").length;
-    const pending = job.records.filter(
-      (r) => r.status === "PENDING" || r.status === "PROCESSING" || r.status === "RETRYING"
-    ).length;
-
-    const totalProcessed = successful + failed + duplicates;
-    const reconciliationErrors: string[] = [];
-
-    // Mandatory Reconciliation Check 1: TOTAL PROCESSED = SUCCESSFUL + FAILED + DUPLICATES
-    if (totalProcessed !== successful + failed + duplicates) {
-      reconciliationErrors.push("Reconciliation mismatch: Total processed does not equal sum of outcomes.");
-    }
-
-    // Mandatory Reconciliation Check 2: SOURCE RECORD COUNT = PROCESSED + PENDING
-    if (job.total_records !== totalProcessed + pending) {
-      reconciliationErrors.push(
-        `Count mismatch: Total records (${job.total_records}) does not equal processed (${totalProcessed}) + pending (${pending}).`
-      );
-    }
-
-    // Mandatory Reconciliation Check 3: At final completion, PENDING must be 0
-    if (pending > 0 && job.current_batch >= job.total_batches) {
-      reconciliationErrors.push(`Job marked finished but ${pending} records are still pending.`);
-    }
-
-    const isReconciled = reconciliationErrors.length === 0;
-
-    const finalStatus: UploadJobStatus =
-      failed > 0 && successful > 0
-        ? "COMPLETED_WITH_ERRORS"
-        : failed > 0 && successful === 0
-        ? "FAILED"
-        : isReconciled && pending === 0
-        ? "COMPLETED"
-        : "PARTIALLY_COMPLETED";
-
-    job.upload_status = finalStatus;
-    job.completed_at = new Date().toISOString();
-    job.updated_at = job.completed_at;
-
-    this.saveToDisk(job);
-
-    try {
-      await supabase
-        .from("bulk_upload_jobs")
-        .update({
-          upload_status: job.upload_status,
-          completed_at: job.completed_at,
-          successful_records: successful,
-          failed_records: failed,
-          duplicate_records: duplicates,
-          updated_at: job.updated_at,
-        })
-        .eq("id", job.id);
-    } catch {}
+    const pending = job.records.filter((r) => r.status === "PENDING" || r.status === "RETRYING" || r.status === "PROCESSING");
+    const failed = job.records.filter((r) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION");
 
     return {
-      job_id: jobId,
-      source_record_count: job.total_records,
-      total_processed: totalProcessed,
-      successful_records: successful,
-      failed_records: failed,
-      duplicate_records: duplicates,
-      pending_records: pending,
-      database_verified_count: databaseVerifiedCount,
-      is_reconciled: isReconciled,
-      reconciliation_errors: reconciliationErrors,
+      pending,
+      failed,
+      checkpoint: job.last_processed_checkpoint,
     };
+  }
+
+  /**
+   * Cancels an ongoing upload job
+   */
+  public static async cancelJob(supabase: SupabaseClient, jobId: string): Promise<BulkUploadJob> {
+    const releaseLock = await this.acquireLock(jobId);
+    try {
+      const job = (await this.getJob(supabase, jobId)) || this.loadFromDisk(jobId);
+      if (!job) {
+        throw new Error(`Upload job ${jobId} not found.`);
+      }
+
+      job.upload_status = "CANCELLED";
+      job.completed_at = new Date().toISOString();
+      job.updated_at = job.completed_at;
+
+      // Mark any remaining pending records as REJECTED
+      job.records.forEach((r) => {
+        if (r.status === "PENDING" || r.status === "PROCESSING" || r.status === "RETRYING") {
+          r.status = "REJECTED";
+          r.error_message = "Upload was cancelled by user.";
+          r.error_category = "SYSTEM_ERROR";
+        }
+      });
+
+      this.saveToDisk(job);
+
+      try {
+        await supabase
+          .from("bulk_upload_jobs")
+          .update({
+            upload_status: "CANCELLED",
+            completed_at: job.completed_at,
+            updated_at: job.updated_at,
+          })
+          .eq("id", job.id);
+      } catch {}
+
+      return job;
+    } finally {
+      releaseLock();
+    }
+  }
+
+  /**
+   * Performs mandatory final verification and data reconciliation against actual database records.
+   * Guarantees: TOTAL INPUT ROWS = SUCCESSFULLY INSERTED + DUPLICATE ROWS + REJECTED ROWS + FAILED ROWS.
+   * Never reports success if database verification fails.
+   */
+  public static async reconcileJob(
+    supabase: SupabaseClient,
+    jobId: string
+  ): Promise<ReconciliationReport> {
+    const releaseLock = await this.acquireLock(jobId);
+
+    try {
+      const job = (await this.getJob(supabase, jobId)) || this.loadFromDisk(jobId);
+      if (!job) {
+        throw new Error(`Upload job ${jobId} not found.`);
+      }
+
+      const insertedProblemIds = job.records
+        .filter((r) => r.status === "INSERTED" && r.problem_id)
+        .map((r) => r.problem_id as string);
+
+      let databaseVerifiedCount = 0;
+      let dbVerificationFailed = false;
+      const reconciliationErrors: string[] = [];
+
+      // Query actual database to verify inserted problem records exist in PostgreSQL
+      if (insertedProblemIds.length > 0) {
+        for (let i = 0; i < insertedProblemIds.length; i += 50) {
+          const chunk = insertedProblemIds.slice(i, i + 50);
+          try {
+            const { count, error } = await supabase
+              .from("coding_problems")
+              .select("id", { count: "exact", head: true })
+              .in("id", chunk);
+
+            if (error) {
+              dbVerificationFailed = true;
+              reconciliationErrors.push(`Database verification query error: ${error.message}`);
+            } else if (count !== null && count !== undefined) {
+              databaseVerifiedCount += count;
+              if (count < chunk.length) {
+                dbVerificationFailed = true;
+                reconciliationErrors.push(
+                  `Record count discrepancy in batch: expected ${chunk.length} verified rows, found ${count}.`
+                );
+              }
+            }
+          } catch (queryErr: any) {
+            dbVerificationFailed = true;
+            reconciliationErrors.push(`Database verification network exception: ${queryErr?.message}`);
+          }
+        }
+      }
+
+      const successful = job.records.filter((r) => r.status === "INSERTED").length;
+      const failed = job.records.filter(
+        (r) => r.status === "FAILED_DATABASE" || r.status === "FAILED_VALIDATION"
+      ).length;
+      const duplicates = job.records.filter((r) => r.status === "DUPLICATE").length;
+      const rejected = job.records.filter((r) => r.status === "REJECTED").length;
+      const pending = job.records.filter(
+        (r) => r.status === "PENDING" || r.status === "PROCESSING" || r.status === "RETRYING"
+      ).length;
+
+      const totalProcessed = successful + failed + duplicates + rejected;
+
+      // Mandatory Reconciliation Formula Check:
+      // TOTAL INPUT ROWS = SUCCESSFULLY INSERTED + DUPLICATE ROWS + REJECTED ROWS + FAILED ROWS
+      const formulaHolds = job.total_records === (successful + duplicates + rejected + failed + pending);
+      const formulaCheck = `${job.total_records} (Total) = ${successful} (Inserted) + ${duplicates} (Duplicate) + ${rejected} (Rejected) + ${failed} (Failed) + ${pending} (Pending)`;
+
+      if (!formulaHolds) {
+        reconciliationErrors.push(`Reconciliation invariant violation: ${formulaCheck}`);
+      }
+
+      // Check if DB verification matched
+      if (databaseVerifiedCount !== successful && successful > 0) {
+        dbVerificationFailed = true;
+        reconciliationErrors.push(
+          `Database verification mismatch: ${successful} records reported inserted, but actual DB verified count is ${databaseVerifiedCount}.`
+        );
+      }
+
+      // Check for unfinished pending records
+      if (pending > 0 && job.current_batch >= job.total_batches) {
+        reconciliationErrors.push(`Job marked completed but ${pending} records are still in pending/processing state.`);
+      }
+
+      const isReconciled = !dbVerificationFailed && reconciliationErrors.length === 0 && pending === 0;
+
+      // Determine final status strictly based on verified facts
+      let finalStatus: UploadJobStatus;
+      if (job.upload_status === "CANCELLED") {
+        finalStatus = "CANCELLED";
+      } else if (dbVerificationFailed) {
+        finalStatus = "PARTIALLY_FAILED";
+      } else if (failed > 0 && successful > 0) {
+        finalStatus = "COMPLETED_WITH_ERRORS";
+      } else if (failed > 0 && successful === 0) {
+        finalStatus = "FAILED";
+      } else if (isReconciled) {
+        finalStatus = "COMPLETED";
+      } else {
+        finalStatus = "PARTIALLY_FAILED";
+      }
+
+      job.upload_status = finalStatus;
+      job.completed_at = new Date().toISOString();
+      job.updated_at = job.completed_at;
+      job.successful_records = successful;
+      job.failed_records = failed;
+      job.duplicate_records = duplicates;
+      job.rejected_records = rejected;
+
+      this.saveToDisk(job);
+
+      try {
+        await supabase
+          .from("bulk_upload_jobs")
+          .update({
+            upload_status: job.upload_status,
+            completed_at: job.completed_at,
+            successful_records: successful,
+            failed_records: failed,
+            duplicate_records: duplicates,
+            updated_at: job.updated_at,
+          })
+          .eq("id", job.id);
+      } catch {}
+
+      return {
+        job_id: jobId,
+        source_record_count: job.total_records,
+        total_processed: totalProcessed,
+        successful_records: successful,
+        failed_records: failed,
+        duplicate_records: duplicates,
+        rejected_records: rejected,
+        pending_records: pending,
+        database_verified_count: databaseVerifiedCount,
+        is_reconciled: isReconciled,
+        formula_check: formulaCheck,
+        reconciliation_errors: reconciliationErrors,
+      };
+    } finally {
+      releaseLock();
+    }
   }
 }

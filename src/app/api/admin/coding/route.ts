@@ -352,9 +352,21 @@ export async function POST(request: NextRequest) {
           const cleanProblemTitle = formatCleanProblemTitle(problem.title);
           const normalizedTitle = cleanProblemTitle.toLowerCase().trim();
 
-          // If bulk upload and problem with identical title already exists, skip insertion to prevent duplicates
+          // If bulk upload and problem with identical title already exists, mark as duplicate without silent loss
           if (isBulk && titleToIdMap.has(normalizedTitle)) {
-            return null;
+            const existingId = titleToIdMap.get(normalizedTitle)!;
+            return {
+              id: existingId,
+              title: cleanProblemTitle,
+              slug: problem.slug || normalizedTitle.replace(/[^a-z0-9]+/g, "-"),
+              status: "published",
+              is_duplicate: true,
+              duplicate_skipped: true,
+              message: `Duplicate problem with title '${cleanProblemTitle}' already exists in database.`,
+              test_cases: [],
+              sample_test_cases: [],
+              hidden_test_cases: [],
+            };
           }
 
           // Only treat as existing record if it's a real UUID (36-char standard format) and NOT a bulk upload
@@ -709,17 +721,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing problem 'id' or 'ids' parameter." }, { status: 400 });
     }
 
-    // Safely delete associated test cases and submissions first to satisfy foreign key constraints
-    try { await supabase.from("test_cases").delete().in("problem_id", idsToDelete); } catch (e) {}
-    try { await supabase.from("coding_submissions").delete().in("problem_id", idsToDelete); } catch (e) {}
+    // Process deletions in chunks of 50 to avoid PostgREST query-URI length limits
+    const CHUNK_SIZE = 50;
+    let totalDeleted = 0;
 
-    const { error } = await supabase.from("coding_problems").delete().in("id", idsToDelete);
-    if (error) {
-      console.error("Error deleting coding problem(s):", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+      const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+
+      // Safely delete associated test cases and submissions first to satisfy foreign key constraints
+      try { await supabase.from("test_cases").delete().in("problem_id", chunk); } catch (e) {}
+      try { await supabase.from("coding_submissions").delete().in("problem_id", chunk); } catch (e) {}
+
+      const { error } = await supabase.from("coding_problems").delete().in("id", chunk);
+      if (error) {
+        console.error("Error deleting coding problem chunk from Supabase:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      totalDeleted += chunk.length;
     }
 
-    return NextResponse.json({ success: true, count: idsToDelete.length });
+    return NextResponse.json({ success: true, count: totalDeleted });
   } catch (error: any) {
     console.error("DELETE /api/admin/coding error:", error);
     return NextResponse.json({ error: error.message || "Failed to delete coding problem." }, { status: 500 });
