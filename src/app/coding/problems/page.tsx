@@ -10,6 +10,7 @@ import { CodingProgressService, type ProblemSolveStatus } from "@/services/codin
 import { CodingAssignmentsService } from "@/services/coding-assignments.service";
 import { SubmissionService } from "@/services/submission.service";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
+import { formatTopicTag } from "@/lib/utils";
 
 const TOPIC_OPTIONS = [
   "All",
@@ -429,9 +430,9 @@ export default function ProblemsListPage() {
                           {(prob.topic_tags || []).slice(0, 3).map((tag: string) => (
                             <span
                               key={tag}
-                              className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-medium"
+                              className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-medium capitalize"
                             >
-                              {tag}
+                              {formatTopicTag(tag)}
                             </span>
                           ))}
                         </div>

@@ -73,6 +73,66 @@ export function formatCleanProblemTitle(rawTitle?: string | null): string {
   return t || String(rawTitle).trim();
 }
 
+/**
+ * Formats topic tags with proper Title Case capitalization and acronym preservation.
+ * E.g. "linked lists" -> "Linked Lists"
+ *      "singly linked list" -> "Singly Linked List"
+ *      "node traversal" -> "Node Traversal"
+ *      "pointer manipulation" -> "Pointer Manipulation"
+ *      "in-place algorithms" -> "In-Place Algorithms"
+ *      "sql" -> "SQL", "bfs" -> "BFS", "dfs" -> "DFS", "dp" -> "DP"
+ */
+export function formatTopicTag(tag?: string | null): string {
+  if (!tag) return "";
+  const ACRONYMS = new Set([
+    "SQL",
+    "BFS",
+    "DFS",
+    "DP",
+    "OOP",
+    "API",
+    "DSA",
+    "BST",
+    "HTML",
+    "CSS",
+    "UI",
+    "UX",
+    "JSON",
+    "XML",
+    "HTTP",
+    "REST",
+    "CLI",
+  ]);
+
+  const capitalizePart = (str: string): string => {
+    if (!str) return "";
+    const clean = str.replace(/^[(\[{'"`]+|[)\]}'"`.,;:!?]+$/g, "");
+    const upper = clean.toUpperCase();
+    if (ACRONYMS.has(upper)) {
+      return str.replace(clean, upper);
+    }
+    if (str.includes("-")) {
+      return str
+        .split("-")
+        .map((p) => capitalizePart(p))
+        .join("-");
+    }
+    if (str.includes("/")) {
+      return str
+        .split("/")
+        .map((p) => capitalizePart(p))
+        .join("/");
+    }
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  return String(tag)
+    .trim()
+    .split(/\s+/)
+    .map(capitalizePart)
+    .join(" ");
+}
+
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength)}...`;

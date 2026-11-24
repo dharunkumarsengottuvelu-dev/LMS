@@ -57,7 +57,7 @@ import { SubmissionService } from "@/services/submission.service";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/coding";
 import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
-import { cn } from "@/lib/utils";
+import { cn, formatTopicTag } from "@/lib/utils";
 import { extractExamplesAndCleanDescription, type ProblemExampleCase } from "@/lib/compiler/example-extractor";
 import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases, extractHiddenTestCases } from "@/lib/compiler/comparator";
 import { EditorialViewer } from "@/components/coding/editorial-viewer";
@@ -1744,9 +1744,9 @@ export default function ProblemSolvingWorkspace() {
                         problem.topic_tags.map((tag) => (
                           <span
                             key={tag}
-                            className="px-2.5 py-1 bg-slate-100 border border-slate-200/80 text-slate-700 rounded-lg text-xs font-medium"
+                            className="px-2.5 py-1 bg-slate-100 border border-slate-200/80 text-slate-700 rounded-lg text-xs font-medium capitalize"
                           >
-                            {tag}
+                            {formatTopicTag(tag)}
                           </span>
                         ))
                       ) : (

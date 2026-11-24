@@ -59,7 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { cn, formatCleanProblemTitle } from "@/lib/utils";
+import { cn, formatCleanProblemTitle, formatTopicTag } from "@/lib/utils";
 import { extractExamplesAndCleanDescription, type ProblemExampleCase } from "@/lib/compiler/example-extractor";
 import type { CodingLanguage } from "@/types/coding";
 import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
@@ -3190,9 +3190,9 @@ export default function StudentPracticeCodingRunnerPage() {
                             rawTopics.map((tag: string) => (
                               <span
                                 key={tag}
-                                className="px-2.5 py-1 bg-slate-100 border border-slate-200/80 text-slate-700 rounded-lg text-xs font-medium"
+                                className="px-2.5 py-1 bg-slate-100 border border-slate-200/80 text-slate-700 rounded-lg text-xs font-medium capitalize"
                               >
-                                {tag}
+                                {formatTopicTag(tag)}
                               </span>
                             ))
                           ) : (

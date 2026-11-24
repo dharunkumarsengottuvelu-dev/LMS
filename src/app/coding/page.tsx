@@ -12,7 +12,7 @@ import { CodingAssignmentsService, type CodingAssignment } from "@/services/codi
 import { CodingLeaderboardService, type LeaderboardEntry } from "@/services/coding-leaderboard.service";
 import { CodingDiscussService, type CodingDiscussPost } from "@/services/coding-discuss.service";
 import { SubmissionService } from "@/services/submission.service";
-import { formatCleanProblemTitle, cn } from "@/lib/utils";
+import { formatCleanProblemTitle, formatTopicTag, cn } from "@/lib/utils";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingSubmission } from "@/types/coding";
 import { toast } from "sonner";
@@ -420,9 +420,9 @@ function CodingDashboardContent() {
                                   {(prob.topic_tags || []).slice(0, 4).map((tag: string) => (
                                     <span
                                       key={tag}
-                                      className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-medium"
+                                      className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-medium capitalize"
                                     >
-                                      {tag}
+                                      {formatTopicTag(tag)}
                                     </span>
                                   ))}
                                 </div>
