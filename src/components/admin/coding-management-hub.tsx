@@ -241,8 +241,9 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
       toast.success(`Problem "${problemToDelete.title}" deleted.`);
       setProblemToDelete(null);
       refreshProblems();
-    } catch {
-      toast.error("Failed to delete problem.");
+    } catch (err: any) {
+      console.error("Failed to delete problem:", err);
+      toast.error(err?.response?.data?.error || err?.message || "Failed to delete problem.");
     } finally {
       setIsDeleting(false);
     }
@@ -273,8 +274,9 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
       setSelectedProblemIds([]);
       setShowBulkDeleteConfirm(false);
       refreshProblems();
-    } catch {
-      toast.error("Failed to delete selected problems.");
+    } catch (err: any) {
+      console.error("Failed to bulk delete problems:", err);
+      toast.error(err?.response?.data?.error || err?.message || "Failed to delete selected problems.");
     } finally {
       setIsBulkDeleting(false);
     }

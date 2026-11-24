@@ -441,6 +441,7 @@ export interface CodingProblem {
   title: string;
   slug: string;
   description: string;
+  clean_description?: string;
   difficulty: Difficulty;
   category?: string;
   type?: string;
@@ -534,6 +535,7 @@ export interface ExecuteCodeResult {
   status: {
     id: number;
     description: string;
+  clean_description?: string;
   };
   time?: string | null;
   memory?: number | null;
@@ -558,6 +560,7 @@ export interface SubmitCodeInput {
 export interface CreateCodingProblemInput {
   title: string;
   description: string;
+  clean_description?: string;
   difficulty: Difficulty;
   constraints?: string;
   templates: Record<string, string>;

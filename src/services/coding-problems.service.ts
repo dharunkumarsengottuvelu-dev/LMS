@@ -344,7 +344,10 @@ export class CodingProblemsService {
    */
   public static async deleteProblem(id: string): Promise<void> {
     try {
-      const res = await axios.delete(`/api/admin/coding?id=${encodeURIComponent(id)}`);
+      const res = await axios.post("/api/admin/coding", {
+        action: "bulk_delete",
+        ids: [id],
+      });
       if (res.data?.success !== true && res.status !== 200) {
         throw new Error(res.data?.error || "Failed to delete problem from database.");
       }
@@ -365,8 +368,9 @@ export class CodingProblemsService {
     try {
       for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
         const chunk = ids.slice(i, i + CHUNK_SIZE);
-        const res = await axios.delete("/api/admin/coding", {
-          data: { ids: chunk },
+        const res = await axios.post("/api/admin/coding", {
+          action: "bulk_delete",
+          ids: chunk,
         });
         if (res.data?.success !== true && res.status !== 200) {
           throw new Error(res.data?.error || "Failed to batch delete problems from database.");

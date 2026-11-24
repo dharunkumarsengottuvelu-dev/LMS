@@ -12,7 +12,7 @@ import { CodingAssignmentsService, type CodingAssignment } from "@/services/codi
 import { CodingLeaderboardService, type LeaderboardEntry } from "@/services/coding-leaderboard.service";
 import { CodingDiscussService, type CodingDiscussPost } from "@/services/coding-discuss.service";
 import { SubmissionService } from "@/services/submission.service";
-import { formatCleanProblemTitle } from "@/lib/utils";
+import { formatCleanProblemTitle, cn } from "@/lib/utils";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingSubmission } from "@/types/coding";
 import { toast } from "sonner";
@@ -72,6 +72,68 @@ function CodingDashboardContent() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [discussPosts, setDiscussPosts] = useState<CodingDiscussPost[]>([]);
   const [submissions, setSubmissions] = useState<CodingSubmission[]>([]);
+  const [highlightedProblemId, setHighlightedProblemId] = useState<string | null>(null);
+
+  // Dedicated Anchor & Position Restoration Engine for completed or clicked problems
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const focusParam = searchParams.get("focus");
+    const hash = window.location.hash;
+    const hashId = hash.startsWith("#problem-")
+      ? hash.replace("#problem-", "")
+      : hash.startsWith("#")
+      ? hash.substring(1)
+      : null;
+    const storedId = sessionStorage.getItem("last_viewed_coding_problem_id");
+    const targetId = focusParam || hashId || storedId;
+
+    if (!targetId) return;
+
+    let attempts = 0;
+    const maxAttempts = 25; // Try over 2.5 seconds until DOM table is stable
+
+    const scrollToTarget = () => {
+      const row =
+        document.getElementById(`problem-${targetId}`) ||
+        document.querySelector(`[data-problem-id="${targetId}"]`);
+
+      if (row) {
+        const rect = row.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const targetY = scrollTop + rect.top - (window.innerHeight / 2) + (rect.height / 2);
+
+        window.scrollTo({
+          top: Math.max(0, targetY),
+          behavior: attempts === 0 ? "auto" : "smooth",
+        });
+
+        setHighlightedProblemId(targetId);
+
+        // Keep re-anchoring for 3 passes to counteract any subsequent DOM updates from refreshData
+        if (attempts < 3) {
+          attempts++;
+          setTimeout(scrollToTarget, 300);
+        } else {
+          setTimeout(() => {
+            setHighlightedProblemId(null);
+            sessionStorage.removeItem("last_viewed_coding_problem_id");
+            if (focusParam) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("focus");
+              window.history.replaceState(null, "", url.pathname + (url.search ? "?" + url.searchParams.toString() : ""));
+            }
+          }, 3500);
+        }
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(scrollToTarget, 100);
+      }
+    };
+
+    const timer = setTimeout(scrollToTarget, 80);
+    return () => clearTimeout(timer);
+  }, [searchParams, problems.length]);
 
   useEffect(() => {
     const refreshData = async () => {
@@ -320,7 +382,12 @@ function CodingDashboardContent() {
                         return (
                           <tr
                             key={prob.id}
-                            className="hover:bg-slate-50/70 transition-colors group"
+                            id={`problem-${prob.id}`}
+                            data-problem-id={prob.id}
+                            className={cn(
+                              "hover:bg-slate-50/70 transition-all duration-300 group",
+                              highlightedProblemId === prob.id && "bg-blue-50/90 ring-2 ring-blue-500 ring-inset shadow-xs"
+                            )}
                           >
                             <td className="py-3 px-3 text-center">
                               {status === "solved" ? (
@@ -340,6 +407,11 @@ function CodingDashboardContent() {
                               <div className="space-y-1">
                                 <Link
                                   href={`/coding/problems/${prob.id}`}
+                                  onClick={() => {
+                                    if (typeof window !== "undefined") {
+                                      sessionStorage.setItem("last_viewed_coding_problem_id", prob.id);
+                                    }
+                                  }}
                                   className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm line-clamp-1"
                                 >
                                   {formatCleanProblemTitle(prob.title)}
@@ -373,7 +445,14 @@ function CodingDashboardContent() {
                               {prob.acceptance_rate || "55%"}
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <Link href={`/coding/problems/${prob.id}`}>
+                              <Link
+                                href={`/coding/problems/${prob.id}`}
+                                onClick={() => {
+                                  if (typeof window !== "undefined") {
+                                    sessionStorage.setItem("last_viewed_coding_problem_id", prob.id);
+                                  }
+                                }}
+                              >
                                 <Button
                                   size="sm"
                                   className={`h-7 px-3 text-xs font-medium rounded transition-colors shadow-none cursor-pointer ${

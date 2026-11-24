@@ -58,6 +58,7 @@ import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/coding";
 import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
 import { cn } from "@/lib/utils";
+import { extractExamplesAndCleanDescription, type ProblemExampleCase } from "@/lib/compiler/example-extractor";
 import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases, extractHiddenTestCases } from "@/lib/compiler/comparator";
 import { EditorialViewer } from "@/components/coding/editorial-viewer";
 
@@ -1141,10 +1142,13 @@ export default function ProblemSolvingWorkspace() {
       setShowFinalSubmitDialog(false);
       setShowVerdictModal(false);
 
-      // Redirect back to Code Lab where Completed badge is displayed
+      // Redirect back to Challenges where Completed badge is displayed and scroll position is preserved
       setTimeout(() => {
-        router.push("/coding");
-      }, 700);
+        if (typeof window !== "undefined" && problem?.id) {
+          sessionStorage.setItem("last_viewed_coding_problem_id", problem.id);
+        }
+        router.push(problem?.id ? `/coding?focus=${encodeURIComponent(problem.id)}` : "/coding");
+      }, 500);
     } catch (err: any) {
       toast.error(err?.message || "Failed to finalize submission");
     } finally {
@@ -1233,12 +1237,15 @@ export default function ProblemSolvingWorkspace() {
       <header className="h-14 bg-white border-b border-slate-200/90 px-3 sm:px-5 lg:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20 gap-3 sm:gap-4">
         {/* Left: Sensilearn Brand / Back to Challenges / #1. Title [Difficulty] / Prev-Next */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <SensilearnLogo variant="mark" size="xs" href="/coding" className="shrink-0" />
+          <SensilearnLogo variant="mark" size="xs" href={problem?.id ? `/coding?focus=${encodeURIComponent(problem.id)}` : "/coding"} className="shrink-0" />
 
           <button
             type="button"
             onClick={() => {
-              router.push("/coding");
+              if (typeof window !== "undefined" && problem?.id) {
+                sessionStorage.setItem("last_viewed_coding_problem_id", problem.id);
+              }
+              router.push(problem?.id ? `/coding?focus=${encodeURIComponent(problem.id)}` : "/coding");
             }}
             className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1.5 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
             title="Back to Challenges"
@@ -1596,73 +1603,105 @@ export default function ProblemSolvingWorkspace() {
                     </div>
                   </div>
 
-                  {/* Problem Statement */}
-                  <div className="space-y-1.5">
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Problem Statement
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                      {problem.description || "Write a program to solve the coding challenge."}
-                    </p>
-                  </div>
+                  {/* Problem Statement & Examples */}
+                  {(() => {
+                    const fallbackCases =
+                      (problem.example_cases && problem.example_cases.length > 0)
+                        ? problem.example_cases
+                        : (problem.sample_test_cases && problem.sample_test_cases.length > 0)
+                        ? problem.sample_test_cases
+                        : (problem.test_cases ? problem.test_cases.filter((tc: any) => !tc.is_hidden) : []);
 
-                  {/* Example(s) */}
-                  <div className="space-y-2.5">
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Example
-                    </h2>
-                    {problem.example_cases && problem.example_cases.length > 0 ? (
-                      problem.example_cases.map((eg, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-slate-50/80 rounded-xl p-3 sm:p-3.5 border border-slate-200/80 space-y-2"
-                        >
-                          <span className="text-xs font-bold text-slate-800 block">
-                            Example {idx + 1}:
-                          </span>
+                    const extractor: (desc?: string | null, cases?: any[]) => { cleanDescription: string; examples: ProblemExampleCase[] } =
+                      typeof extractExamplesAndCleanDescription === "function"
+                        ? extractExamplesAndCleanDescription
+                        : (desc, cases) => ({
+                            cleanDescription: typeof desc === "string" ? desc.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:\*\*)?Example[\s\S]*$/i, "").trim() : "",
+                            examples: Array.isArray(cases)
+                              ? cases.slice(0, 3).map((tc: any) => ({
+                                  input: tc.input || "",
+                                  output: tc.expected_output || tc.output || "",
+                                  explanation: tc.explanation || undefined,
+                                }))
+                              : [],
+                          });
 
-                          <div className="space-y-1">
-                            <span className="text-[11px] font-bold text-slate-600 block">Input:</span>
-                            <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
-                              {eg.input || "(No input)"}
+                    const { cleanDescription, examples } = extractor(
+                      problem.clean_description || problem.description,
+                      fallbackCases
+                    );
+
+                    return (
+                      <>
+                        <div className="space-y-1.5">
+                          <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                            Problem Statement
+                          </h2>
+                          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                            {cleanDescription || "Write a program to solve the coding challenge."}
+                          </p>
+                        </div>
+
+                        {/* Example(s) */}
+                        <div className="space-y-2.5">
+                          <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                            Example
+                          </h2>
+                          {examples.length > 0 ? (
+                            examples.map((eg, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-slate-50/80 rounded-xl p-3 sm:p-3.5 border border-slate-200/80 space-y-2"
+                              >
+                                <span className="text-xs font-bold text-slate-800 block">
+                                  Example {idx + 1}:
+                                </span>
+
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-bold text-slate-600 block">Input:</span>
+                                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
+                                    {eg.input || "(No input)"}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-bold text-slate-600 block">Output:</span>
+                                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
+                                    {eg.output || "(No output required)"}
+                                  </div>
+                                </div>
+
+                                {eg.explanation && (
+                                  <p className="text-[11px] text-slate-500 pt-0.5 leading-relaxed">
+                                    <strong className="text-slate-700">Explanation: </strong>
+                                    {eg.explanation}
+                                  </p>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="bg-slate-50/80 rounded-xl p-3 sm:p-3.5 border border-slate-200/80 space-y-2">
+                              <span className="text-xs font-bold text-slate-800 block">
+                                Example 1:
+                              </span>
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-bold text-slate-600 block">Input:</span>
+                                <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
+                                  {problem.sample_input || "(No input)"}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-bold text-slate-600 block">Output:</span>
+                                <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
+                                  {problem.sample_output || "(No output required)"}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-
-                          <div className="space-y-1">
-                            <span className="text-[11px] font-bold text-slate-600 block">Output:</span>
-                            <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
-                              {eg.output}
-                            </div>
-                          </div>
-
-                          {eg.explanation && (
-                            <p className="text-[11px] text-slate-500 pt-0.5 leading-relaxed">
-                              <strong className="text-slate-700">Explanation: </strong>
-                              {eg.explanation}
-                            </p>
                           )}
                         </div>
-                      ))
-                    ) : (
-                      <div className="bg-slate-50/80 rounded-xl p-3 sm:p-3.5 border border-slate-200/80 space-y-2">
-                        <span className="text-xs font-bold text-slate-800 block">
-                          Example 1:
-                        </span>
-                        <div className="space-y-1">
-                          <span className="text-[11px] font-bold text-slate-600 block">Input:</span>
-                          <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
-                            {problem.sample_input || "(No input)"}
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[11px] font-bold text-slate-600 block">Output:</span>
-                          <div className="p-2.5 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
-                            {problem.sample_output || "(No output required)"}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    );
+                  })()}
 
                   {/* Constraints */}
                   <div className="space-y-1.5">
@@ -1911,7 +1950,7 @@ export default function ProblemSolvingWorkspace() {
                     lineDecorationsWidth: 4,
                     glyphMargin: false,
                     folding: true,
-                    showFoldingControls: "mouseover",
+                    showFoldingControls: "always",
                     padding: { top: 16, bottom: 16 },
                     renderLineHighlight: "none",
                     fixedOverflowWidgets: true,
@@ -2152,7 +2191,7 @@ export default function ProblemSolvingWorkspace() {
                       {systemTestCases.map((tc, idx) => (
                         <div key={tc.id || idx} className="space-y-2">
                           <span className="font-semibold text-slate-700 text-xs block">
-                            Sample Case {idx + 1}:
+                            Sample Case {idx + 1}
                           </span>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2286,14 +2325,10 @@ export default function ProblemSolvingWorkspace() {
                                   )}
                                   Case {rIdx + 1}
                                 </span>
-                                {r.is_hidden ? (
+                                {r.is_hidden && (
                                   <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                     <Lock className="w-2.5 h-2.5" />
                                     Hidden
-                                  </span>
-                                ) : (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
-                                    Sample
                                   </span>
                                 )}
                               </div>

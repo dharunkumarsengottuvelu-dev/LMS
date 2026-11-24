@@ -225,7 +225,7 @@ export function CodeEditor({
     folding: true,
     foldingHighlight: true,
     foldingStrategy: "auto" as const,
-    showFoldingControls: "mouseover" as const,
+    showFoldingControls: "always" as const,
     renderLineHighlight: "none" as const,
     renderLineHighlightOnlyWhenFocus: false,
     tabSize,

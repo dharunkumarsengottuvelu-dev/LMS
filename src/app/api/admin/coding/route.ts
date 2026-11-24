@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 import { formatCleanProblemTitle } from "@/lib/utils";
+import { extractExamplesAndCleanDescription } from "@/lib/compiler/example-extractor";
 import type { CodingProblem, TestCase } from "@/types/coding";
 
 export const maxDuration = 60;
@@ -219,12 +220,19 @@ export async function GET(request: NextRequest) {
 
       const defaultLang = extra.default_language || (finalAllowed?.[0]) || undefined;
 
+      // Extract clean description and fallback examples
+      const { cleanDescription, examples } = extractExamplesAndCleanDescription(
+        p.description,
+        sampleTc.length > 0 ? sampleTc : dbTc.filter((tc: any) => !tc.is_hidden)
+      );
+
       return {
         id: p.id,
         problem_number: extra.problem_number ? Number(extra.problem_number) : (idx + 1),
         title: formatCleanProblemTitle(p.title),
         slug: p.slug,
         description: p.description,
+        clean_description: cleanDescription,
         difficulty: p.difficulty,
         category: extra.category || extra.type || p.category || (p as any).type || "Algorithm",
         type: extra.type || extra.category || (p as any).type || p.category || "Algorithm",
@@ -233,7 +241,7 @@ export async function GET(request: NextRequest) {
         constraints: extra.constraints || "",
         input_format: extra.input_format || "",
         output_format: extra.output_format || "",
-        example_cases: extra.example_cases || [],
+        example_cases: (Array.isArray(extra.example_cases) && extra.example_cases.length > 0) ? extra.example_cases : examples,
         solution_editorial: sol.overview ? sol : extra.solution_editorial,
         templates: extra.templates || {},
         allowed_languages: finalAllowed,
@@ -295,6 +303,39 @@ export async function POST(request: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await request.json();
+
+    // Support action: "bulk_delete" via POST for reliable chunked deletion across all browsers/proxies
+    if (body?.action === "bulk_delete" || body?.action === "delete") {
+      const idsToDelete: string[] = Array.isArray(body.ids)
+        ? body.ids
+        : body.id
+        ? [body.id]
+        : [];
+
+      if (idsToDelete.length === 0) {
+        return NextResponse.json({ error: "Missing problem 'id' or 'ids' parameter." }, { status: 400 });
+      }
+
+      const CHUNK_SIZE = 50;
+      let totalDeleted = 0;
+
+      for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+        const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+
+        try { await supabase.from("test_cases").delete().in("problem_id", chunk); } catch (e) {}
+        try { await supabase.from("coding_submissions").delete().in("problem_id", chunk); } catch (e) {}
+        try { await supabase.from("test_questions").delete().in("problem_id", chunk); } catch (e) {}
+
+        const { error } = await supabase.from("coding_problems").delete().in("id", chunk);
+        if (error) {
+          console.error("Error deleting coding problem chunk from Supabase:", error);
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        totalDeleted += chunk.length;
+      }
+
+      return NextResponse.json({ success: true, count: totalDeleted, deleted_count: totalDeleted });
+    }
 
     // Support single problem or array / { problems: [...] }
     const problemsList: CodingProblem[] = Array.isArray(body)
@@ -728,9 +769,10 @@ export async function DELETE(request: NextRequest) {
     for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
       const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
 
-      // Safely delete associated test cases and submissions first to satisfy foreign key constraints
+      // Safely delete associated test cases, submissions, and test questions first to satisfy foreign key constraints
       try { await supabase.from("test_cases").delete().in("problem_id", chunk); } catch (e) {}
       try { await supabase.from("coding_submissions").delete().in("problem_id", chunk); } catch (e) {}
+      try { await supabase.from("test_questions").delete().in("problem_id", chunk); } catch (e) {}
 
       const { error } = await supabase.from("coding_problems").delete().in("id", chunk);
       if (error) {

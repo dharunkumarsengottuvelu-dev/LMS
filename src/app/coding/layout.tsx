@@ -15,7 +15,7 @@ export default function CodingRootLayout({
   return (
     <CodingLayoutWrapper>
       {children}
-      <Toaster position="top-right" richColors />
+      <Toaster position="bottom-right" richColors closeButton duration={3500} />
     </CodingLayoutWrapper>
   );
 }

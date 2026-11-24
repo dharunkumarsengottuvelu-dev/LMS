@@ -226,3 +226,5 @@ export function getTopicThumbnail(title?: string, category?: string, customThumb
   // Default clean programming workspace
   return "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800&auto=format&fit=crop&q=80";
 }
+
+export { extractExamplesAndCleanDescription, type ProblemExampleCase } from "@/lib/compiler/example-extractor";

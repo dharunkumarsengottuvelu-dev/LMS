@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatCleanProblemTitle } from "@/lib/utils";
+import { extractExamplesAndCleanDescription, type ProblemExampleCase } from "@/lib/compiler/example-extractor";
 import type { CodingLanguage } from "@/types/coding";
 import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
 import {
@@ -3042,77 +3043,104 @@ export default function StudentPracticeCodingRunnerPage() {
                   </div>
                 )}
 
-                {/* Problem Statement */}
-                <div className="space-y-1.5">
-                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">
-                    Problem Statement
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                    {currentProblem.description || "Write a program to solve this coding problem."}
-                  </p>
-                </div>
-
-                {/* Example(s) */}
+                {/* Problem Statement & Examples */}
                 {(() => {
                   const starter = currentProblem.starter_code || {};
-                  const examples =
+                  const fallbackCases =
                     (Array.isArray(currentProblem.example_cases) && currentProblem.example_cases.length > 0)
                       ? currentProblem.example_cases
                       : (Array.isArray(starter.example_cases) && starter.example_cases.length > 0)
                       ? starter.example_cases
+                      : (Array.isArray(currentProblem.sample_test_cases) && currentProblem.sample_test_cases.length > 0)
+                      ? currentProblem.sample_test_cases
+                      : (Array.isArray(starter.sample_test_cases) && starter.sample_test_cases.length > 0)
+                      ? starter.sample_test_cases
+                      : (Array.isArray(currentProblem.test_cases) && currentProblem.test_cases.length > 0)
+                      ? currentProblem.test_cases.filter((tc: any) => !tc.is_hidden)
                       : [];
 
+                  const extractor: (desc?: string | null, cases?: any[]) => { cleanDescription: string; examples: ProblemExampleCase[] } =
+                    typeof extractExamplesAndCleanDescription === "function"
+                      ? extractExamplesAndCleanDescription
+                      : (desc, cases) => ({
+                          cleanDescription: typeof desc === "string" ? desc.replace(/(?:^|\n)\s*(?:#{1,4}\s*)?(?:\*\*)?Example[\s\S]*$/i, "").trim() : "",
+                          examples: Array.isArray(cases)
+                            ? cases.slice(0, 3).map((tc: any) => ({
+                                input: tc.input || "",
+                                output: tc.expected_output || tc.output || "",
+                                explanation: tc.explanation || undefined,
+                              }))
+                            : [],
+                        });
+
+                  const { cleanDescription, examples } = extractor(
+                    currentProblem.clean_description || currentProblem.description,
+                    fallbackCases
+                  );
+
                   return (
-                    <div className="space-y-2.5">
-                      <h2 className="text-xs sm:text-sm font-bold text-slate-900">
-                        Example
-                      </h2>
-                      {examples.length > 0 ? (
-                        examples.map((eg: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="bg-slate-50/80 rounded-xl p-3 sm:p-3.5 border border-slate-200/80 space-y-2"
-                          >
-                            <span className="text-xs font-bold text-slate-800 block">
-                              Example {idx + 1}:
-                            </span>
+                    <>
+                      <div className="space-y-1.5">
+                        <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                          Problem Statement
+                        </h2>
+                        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                          {cleanDescription || "Write a program to solve this coding problem."}
+                        </p>
+                      </div>
+
+                      {/* Example(s) */}
+                      <div className="space-y-2.5">
+                        <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                          Example
+                        </h2>
+                        {examples.length > 0 ? (
+                          examples.map((eg: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="bg-slate-50/80 rounded-xl p-3 sm:p-3.5 border border-slate-200/80 space-y-2"
+                            >
+                              <span className="text-xs font-bold text-slate-800 block">
+                                Example {idx + 1}:
+                              </span>
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-semibold text-slate-600 block">Input:</span>
+                                <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
+                                  {eg.input || "(No input)"}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-semibold text-slate-600 block">Output:</span>
+                                <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
+                                  {eg.output || "(No output required)"}
+                                </div>
+                              </div>
+                              {eg.explanation && (
+                                <p className="text-xs text-slate-500 pt-1 border-t border-slate-200/60 leading-relaxed">
+                                  {eg.explanation}
+                                </p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
+                            <span className="text-xs font-bold text-slate-800 block">Example 1:</span>
                             <div className="space-y-1">
                               <span className="text-[11px] font-semibold text-slate-600 block">Input:</span>
-                              <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
-                                {eg.input || "(No input)"}
+                              <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
+                                (No input)
                               </div>
                             </div>
                             <div className="space-y-1">
                               <span className="text-[11px] font-semibold text-slate-600 block">Output:</span>
-                              <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap">
-                                {eg.output || "(No output)"}
+                              <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
+                                (No output required)
                               </div>
                             </div>
-                            {eg.explanation && (
-                              <p className="text-xs text-slate-500 pt-1 border-t border-slate-200/60 leading-relaxed">
-                                {eg.explanation}
-                              </p>
-                            )}
                           </div>
-                        ))
-                      ) : (
-                        <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
-                          <span className="text-xs font-bold text-slate-800 block">Example 1:</span>
-                          <div className="space-y-1">
-                            <span className="text-[11px] font-semibold text-slate-600 block">Input:</span>
-                            <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
-                              (No input)
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[11px] font-semibold text-slate-600 block">Output:</span>
-                            <div className="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs text-slate-800">
-                              Hello, World!
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    </>
                   );
                 })()}
 
@@ -3505,7 +3533,7 @@ export default function StudentPracticeCodingRunnerPage() {
                     lineDecorationsWidth: 4,
                     glyphMargin: false,
                     folding: true,
-                    showFoldingControls: "mouseover",
+                    showFoldingControls: "always",
                     padding: { top: 16, bottom: 16 },
                     renderLineHighlight: "none",
                     fixedOverflowWidgets: true,
@@ -3731,7 +3759,7 @@ export default function StudentPracticeCodingRunnerPage() {
                     {systemTestCases.map((tc: any, idx: number) => (
                       <div key={tc.id || idx} className="space-y-2">
                         <span className="font-semibold text-slate-700 text-xs block">
-                          Sample Case {idx + 1}:
+                          Sample Case {idx + 1}
                         </span>
 
                         {isSqlProblem ? (
@@ -3896,9 +3924,6 @@ export default function StudentPracticeCodingRunnerPage() {
                                     <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                                   )}
                                   Test Case {idx + 1}
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
-                                  Sample
                                 </span>
                               </div>
                               <span className={cn(

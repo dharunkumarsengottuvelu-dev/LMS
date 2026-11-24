@@ -931,17 +931,26 @@ p, span, div {
 }
 
 /* Fallback & Enhanced Crisp SVG Arrows for Monaco Code Folding */
+.monaco-editor .codicon-folding-expanded,
+.monaco-editor .codicon-folding-collapsed,
+.monaco-editor .cldr.codicon-folding-expanded,
+.monaco-editor .cldr.codicon-folding-collapsed {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 .monaco-editor .codicon-folding-expanded:before,
 .monaco-editor .cldr.codicon-folding-expanded:before {
   content: "" !important;
   display: inline-block !important;
   width: 14px !important;
   height: 14px !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: center !important;
   background-size: 11px 11px !important;
   vertical-align: middle !important;
+  opacity: 1 !important;
 }
 
 .monaco-editor .codicon-folding-collapsed:before,
@@ -950,11 +959,12 @@ p, span, div {
   display: inline-block !important;
   width: 14px !important;
   height: 14px !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'%3E%3C/polyline%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: center !important;
   background-size: 11px 11px !important;
   vertical-align: middle !important;
+  opacity: 1 !important;
 }
 
 .dark .monaco-editor .codicon-folding-expanded:before,
