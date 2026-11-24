@@ -892,7 +892,8 @@ p, span, div {
 
 .monaco-editor .margin {
   background-color: #FAFAFC !important;
-  border-right: 1px solid #E2E8F0 !important;
+  border-right: none !important;
+  box-shadow: inset -12px 0 0 0 #FFFFFF, inset -13px 0 0 0 #E2E8F0 !important;
 }
 
 .monaco-editor .line-numbers {
@@ -909,13 +910,19 @@ p, span, div {
   font-weight: 700 !important;
 }
 
-.monaco-editor .current-line {
-  border-left: 2px solid #2563EB !important;
+.monaco-editor .margin-view-overlays .current-line {
+  border-left: 2.5px solid #2563EB !important;
+}
+
+.monaco-editor .view-overlays .current-line {
+  border-left: none !important;
+  background-color: rgba(37, 99, 235, 0.04) !important;
 }
 
 .dark .monaco-editor .margin {
   background-color: #141417 !important;
-  border-right: 1px solid #27272A !important;
+  border-right: none !important;
+  box-shadow: inset -12px 0 0 0 #18181B, inset -13px 0 0 0 #27272A !important;
 }
 
 .dark .monaco-editor .line-numbers {
@@ -926,8 +933,13 @@ p, span, div {
   color: #60A5FA !important;
 }
 
-.dark .monaco-editor .current-line {
-  border-left: 2px solid #3B82F6 !important;
+.dark .monaco-editor .margin-view-overlays .current-line {
+  border-left: 2.5px solid #3B82F6 !important;
+}
+
+.dark .monaco-editor .view-overlays .current-line {
+  border-left: none !important;
+  background-color: rgba(59, 130, 246, 0.08) !important;
 }
 
 /* Fallback & Enhanced Crisp SVG Arrows for Monaco Code Folding */

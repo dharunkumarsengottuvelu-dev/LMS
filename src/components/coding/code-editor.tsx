@@ -220,7 +220,7 @@ export function CodeEditor({
     scrollBeyondLastLine: false,
     lineNumbers: "on" as const,
     lineNumbersMinChars: 3,
-    lineDecorationsWidth: 4,
+    lineDecorationsWidth: 28,
     glyphMargin: false,
     folding: true,
     foldingHighlight: true,
@@ -979,7 +979,6 @@ export function CodeEditor({
                  <PanelLeftOpen className="h-4 w-4" />
                </Button>
              )}
-             <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600 shadow-xs shrink-0"></span>
              <span className="font-bold tracking-tight text-slate-900 hidden md:inline shrink-0">Code Editor</span>
              {isFullscreen && (
                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 border-blue-200 shrink-0 hidden sm:inline-flex rounded-full">

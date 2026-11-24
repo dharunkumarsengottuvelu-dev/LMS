@@ -3414,10 +3414,9 @@ export default function StudentPracticeCodingRunnerPage() {
                 : "lg:h-auto lg:flex-1 lg:min-h-[160px]"
             )}
           >
-            {/* Editor Header Bar: Blue Dot + Code Editor + Language Badge + Fullscreen Button */}
+            {/* Editor Header Bar: Code Editor + Language Badge + Fullscreen Button */}
             <div className="h-10 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
                 <span className="text-xs font-bold text-slate-800">Code Editor</span>
                 {isEditorFullscreen && (
                   <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full">
@@ -3530,7 +3529,7 @@ export default function StudentPracticeCodingRunnerPage() {
                     insertSpaces: true,
                     lineNumbers: "on",
                     lineNumbersMinChars: 3,
-                    lineDecorationsWidth: 4,
+                    lineDecorationsWidth: 28,
                     glyphMargin: false,
                     folding: true,
                     showFoldingControls: "always",
