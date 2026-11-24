@@ -116,13 +116,14 @@ export class CodingProblemsService {
     problems: CodingProblem[],
     filename: string = "bulk_challenges.xlsx",
     onJobUpdate?: (job: any, progressPercent: number) => void,
-    options: { batchSize?: number } = {}
+    options: { batchSize?: number; allowOverwrite?: boolean } = {}
   ): Promise<{ job: any; reconciliationReport: any; allSaved: CodingProblem[] }> {
     if (!problems || problems.length === 0) {
       throw new Error("No problem records provided for upload.");
     }
 
     const BATCH_SIZE = options.batchSize || (problems.length > 500 ? 50 : 25);
+    const allowOverwrite = options.allowOverwrite !== false;
     const totalRecords = problems.length;
     const totalBatches = Math.ceil(totalRecords / BATCH_SIZE);
 
@@ -157,6 +158,7 @@ export class CodingProblemsService {
       const slice = problems.slice(start, start + BATCH_SIZE).map((p, sIdx) => ({
         ...p,
         source_row_number: start + sIdx + 1,
+        allow_overwrite: allowOverwrite,
       }));
 
       try {
@@ -167,6 +169,7 @@ export class CodingProblemsService {
             job_id: jobId,
             batch_index: bIdx + 1,
             problems: slice,
+            allow_overwrite: allowOverwrite,
           },
           { timeout: 75000, maxRetries: 3, initialDelayMs: 1500 }
         );
@@ -185,6 +188,7 @@ export class CodingProblemsService {
                 job_id: jobId,
                 batch_index: bIdx + 1,
                 problems: subSlice,
+                allow_overwrite: allowOverwrite,
               },
               { timeout: 45000, maxRetries: 2, initialDelayMs: 1000 }
             );

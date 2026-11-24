@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // ─── ACTION 2: PROCESS BATCH WITH ATOMIC COMMIT & IDEMPOTENCY ──────────────
     if (action === "process_batch") {
-      const { job_id, batch_index, problems } = body;
+      const { job_id, batch_index, problems, allow_overwrite } = body;
       if (!job_id || !Array.isArray(problems)) {
         return NextResponse.json({ error: "job_id and problems array are required." }, { status: 400 });
       }
@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
       }
 
       const seenBatchTitles = new Set<string>();
+      const batchTitleCounts = new Map<string, number>();
 
       // Concurrently process records in batch with atomic rollback on test case failure
       const processedResults = await Promise.all(
@@ -106,6 +107,10 @@ export async function POST(request: NextRequest) {
           const rawTitle = item.title !== undefined && item.title !== null ? item.title : "";
           const cleanTitle = formatCleanProblemTitle(rawTitle).trim();
           const normalizedTitle = cleanTitle.toLowerCase();
+          const isOverwriteAllowed =
+            item.allow_overwrite !== undefined
+              ? Boolean(item.allow_overwrite)
+              : (allow_overwrite !== undefined ? Boolean(allow_overwrite) : true);
 
           // 1. Validation check: Missing mandatory title
           if (!cleanTitle) {
@@ -118,17 +123,25 @@ export async function POST(request: NextRequest) {
             };
           }
 
-          // 2. Intra-batch duplicate check: Duplicate title within the same upload batch
+          // 2. Intra-batch duplicate check
+          let finalCleanTitle = cleanTitle;
           if (seenBatchTitles.has(normalizedTitle)) {
-            return {
-              source_row_number: rowNumber,
-              title: cleanTitle,
-              status: "DUPLICATE" as const,
-              error_message: `Duplicate title in uploaded dataset: '${cleanTitle}'. Duplicate row skipped.`,
-              error_category: "DUPLICATE_CONFLICT" as const,
-            };
+            if (!isOverwriteAllowed) {
+              return {
+                source_row_number: rowNumber,
+                title: cleanTitle,
+                status: "DUPLICATE" as const,
+                error_message: `Duplicate title in uploaded dataset: '${cleanTitle}'. Duplicate row skipped.`,
+                error_category: "DUPLICATE_CONFLICT" as const,
+              };
+            }
+            const count = (batchTitleCounts.get(normalizedTitle) || 1) + 1;
+            batchTitleCounts.set(normalizedTitle, count);
+            finalCleanTitle = `${cleanTitle} (${count})`;
+          } else {
+            seenBatchTitles.add(normalizedTitle);
+            batchTitleCounts.set(normalizedTitle, 1);
           }
-          seenBatchTitles.add(normalizedTitle);
 
           // 3. Deterministic Idempotency Key & Slug Generation
           const idempotencyKey = BulkUploadJobManager.generateRowIdempotencyKey(job_id, rowNumber, cleanTitle);
@@ -150,16 +163,15 @@ export async function POST(request: NextRequest) {
               // Row was already successfully inserted in a previous run/retry: reuse it idempotently!
               return {
                 source_row_number: rowNumber,
-                title: cleanTitle,
+                title: finalCleanTitle,
                 status: "INSERTED" as const,
                 problem_id: existingBySlug.id,
               };
             }
 
-            // 5. Database Pre-Existence Check: Check if problem with this exact title already existed in LMS
-            // If duplicate and not tagged for upsert, record it as DUPLICATE outcome without failing
+            // 5. Database Pre-Existence Check: If overwrite is not allowed, record as duplicate outcome
             const existingInDb = titleToExistingProblemMap.get(normalizedTitle);
-            if (existingInDb && !item.allow_overwrite) {
+            if (existingInDb && !isOverwriteAllowed) {
               return {
                 source_row_number: rowNumber,
                 title: cleanTitle,
@@ -225,15 +237,68 @@ export async function POST(request: NextRequest) {
               schema_sql: item.schema_sql || undefined,
             };
 
-            // 7. Step 1 of Transaction: Insert problem record
+            // 7. If problem exists in LMS database and overwrite is allowed: Overwrite / Update existing record!
+            if (existingInDb && isOverwriteAllowed) {
+              const problemId = existingInDb.id;
+
+              const { error: updateErr } = await supabase
+                .from("coding_problems")
+                .update({
+                  title: finalCleanTitle,
+                  description:
+                    item.description ||
+                    `Solve algorithmic challenge: ${finalCleanTitle}. Implement the optimal solution.`,
+                  difficulty: (item.difficulty || "medium").toLowerCase(),
+                  tags: item.topic_tags || [],
+                  time_limit_ms: item.time_limit_ms || 2000,
+                  memory_limit_mb: item.memory_limit_mb || 256,
+                  starter_code: starterCodePayload,
+                  solution_code: item.solution_editorial || item.solution_code || null,
+                  status: "published",
+                })
+                .eq("id", problemId);
+
+              if (updateErr) {
+                throw new Error(updateErr.message || "Failed to update existing problem in database.");
+              }
+
+              // Replace test cases
+              try {
+                await supabase.from("test_cases").delete().eq("problem_id", problemId);
+              } catch {}
+
+              if (allTestCases.length > 0) {
+                const tcRows = allTestCases.map((tc: any, oIdx: number) => ({
+                  problem_id: problemId,
+                  input: tc.input || "",
+                  expected_output: tc.expected_output || "",
+                  is_hidden: Boolean(tc.is_hidden),
+                  order_index: oIdx,
+                }));
+
+                const { error: tcErr } = await supabase.from("test_cases").insert(tcRows);
+                if (tcErr) {
+                  console.warn(`[Upload Job] Failed to sync test cases for updated problem ${problemId}:`, tcErr);
+                }
+              }
+
+              return {
+                source_row_number: rowNumber,
+                title: finalCleanTitle,
+                status: "INSERTED" as const,
+                problem_id: problemId,
+              };
+            }
+
+            // 8. Step 1 of Transaction: Insert new problem record
             const { data: dbProblem, error: pErr } = await supabase
               .from("coding_problems")
               .insert({
-                title: cleanTitle,
+                title: finalCleanTitle,
                 slug: deterministicSlug,
                 description:
                   item.description ||
-                  `Solve algorithmic challenge: ${cleanTitle}. Implement the optimal solution.`,
+                  `Solve algorithmic challenge: ${finalCleanTitle}. Implement the optimal solution.`,
                 difficulty: (item.difficulty || "medium").toLowerCase(),
                 tags: item.topic_tags || [],
                 time_limit_ms: item.time_limit_ms || 2000,
@@ -249,7 +314,7 @@ export async function POST(request: NextRequest) {
               throw new Error(pErr?.message || "Failed to insert problem record into database.");
             }
 
-            // 8. Step 2 of Transaction: Insert test cases atomically
+            // 9. Step 2 of Transaction: Insert test cases atomically
             if (allTestCases.length > 0) {
               const tcRows = allTestCases.map((tc: any, oIdx: number) => ({
                 problem_id: dbProblem.id,
@@ -274,7 +339,7 @@ export async function POST(request: NextRequest) {
 
             return {
               source_row_number: rowNumber,
-              title: cleanTitle,
+              title: finalCleanTitle,
               status: "INSERTED" as const,
               problem_id: dbProblem.id,
             };

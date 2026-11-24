@@ -1013,7 +1013,8 @@ export function BulkUploadComponent({
           (job, percent) => {
             setLiveJob(job);
             setLiveProgressPercent(percent);
-          }
+          },
+          { allowOverwrite: true }
         );
         setLiveJob(result.job);
         setReconciliationReport(result.reconciliationReport);
