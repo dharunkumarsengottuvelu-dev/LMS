@@ -186,6 +186,7 @@ export function CodeEditor({
   const hasUserEditedRef = useRef<boolean>(false);
   const consoleRef = useRef<HTMLDivElement>(null);
   const consoleContentRef = useRef<HTMLDivElement>(null);
+  const handleRunRef = useRef<() => void>(() => {});
   const { toast } = useToast();
 
   // Automatic Monaco ResizeObserver to layout immediately on container/viewport changes
@@ -413,74 +414,8 @@ export function CodeEditor({
 
       // Bind Run shortcut inside Monaco
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-        handleRun();
+        handleRunRef.current();
       });
-
-      // 1. Intercept addContentWidget so any widget (including SuggestWidget) enforces preference [BELOW]
-      try {
-        if (typeof editor.addContentWidget === "function") {
-          const origAddContentWidget = editor.addContentWidget.bind(editor);
-          editor.addContentWidget = function(contentWidget: any) {
-            if (contentWidget && typeof contentWidget.getPosition === "function") {
-              const widgetId = typeof contentWidget.getId === "function" ? contentWidget.getId() : "";
-              if (!widgetId || widgetId.toLowerCase().includes("suggest")) {
-                const origGetPos = contentWidget.getPosition.bind(contentWidget);
-                contentWidget.getPosition = function() {
-                  const pos = origGetPos();
-                  if (pos) {
-                    pos.preference = [2]; // 2 = monaco.editor.ContentWidgetPositionPreference.BELOW
-                  }
-                  return pos;
-                };
-              }
-            }
-            return origAddContentWidget(contentWidget);
-          };
-        }
-      } catch (err) {
-        console.warn("[Monaco] Could not intercept addContentWidget:", err);
-      }
-
-      // 2. Access suggestController and enforce positioning directly
-      try {
-        const suggestContrib = editor.getContribution?.("editor.contrib.suggestController") as any;
-        if (suggestContrib) {
-          const widget = suggestContrib.widget?.value || suggestContrib._widget?.value;
-          if (widget) {
-            if (typeof widget.getPosition === "function") {
-              const origGetPos = widget.getPosition.bind(widget);
-              widget.getPosition = function() {
-                const pos = origGetPos();
-                if (pos) {
-                  pos.preference = [2];
-                }
-                return pos;
-              };
-            }
-
-            // Snap suggest widget below cursor
-            widget.onDidShow?.(() => {
-              requestAnimationFrame(() => {
-                const domNode = widget.getDomNode?.() || document.querySelector(".monaco-editor .suggest-widget");
-                if (domNode && domNode.classList.contains("above")) {
-                  const pos = editor.getPosition();
-                  const cursorCoord = editor.getScrolledVisiblePosition(pos);
-                  const editorDom = editor.getDomNode();
-                  if (cursorCoord && editorDom) {
-                    const editorRect = editorDom.getBoundingClientRect();
-                    const topBelow = editorRect.top + cursorCoord.top + cursorCoord.height + 4;
-                    domNode.style.top = `${topBelow}px`;
-                    domNode.classList.remove("above");
-                    domNode.classList.add("below");
-                  }
-                }
-              });
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("[Monaco] Could not bind suggestController widget:", err);
-      }
     }
   }, [handleFormatCode]);
 
@@ -910,6 +845,7 @@ export function CodeEditor({
       setIsRunning(false);
     }
   };
+  handleRunRef.current = handleRun;
 
   const handleSubmit = async () => {
     if (isRunning || isSubmitting) return;

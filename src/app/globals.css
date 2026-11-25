@@ -431,7 +431,8 @@ p, span, div {
   max-width: 480px !important;
   background-color: #FFFFFF !important;
   color: #0F172A !important;
-  padding: 4px 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
 }
@@ -439,10 +440,14 @@ p, span, div {
 .monaco-editor .suggest-widget .tree,
 .monaco-editor .suggest-widget .monaco-list {
   background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list .monaco-scrollable-element {
   overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-rows {
@@ -457,9 +462,9 @@ p, span, div {
   color: #334155 !important;
   padding: 0 10px !important;
   background-color: transparent !important;
-  border-radius: 4px !important;
-  margin: 0 4px !important;
-  width: calc(100% - 8px) !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
   display: flex !important;
   align-items: center !important;
   cursor: pointer !important;
