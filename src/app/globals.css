@@ -413,7 +413,7 @@ p, span, div {
 
 /* ═══════════════════════════════════════════════════════════════════
    PREMIUM ENTERPRISE MONACO AUTOCOMPLETE & SUGGEST WIDGET
-   Full content visibility, pixel-perfect alignment, rich MNC iconography
+   Clean text-only design, perfect alignment, zero clipping
    ═══════════════════════════════════════════════════════════════════ */
 
 .monaco-editor .suggest-widget,
@@ -425,10 +425,10 @@ p, span, div {
 
 .monaco-editor .suggest-widget {
   border-radius: 8px !important;
-  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.16), 0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
-  border: 1px solid #E2E8F0 !important;
-  min-width: 320px !important;
-  max-width: 520px !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.14), 0 4px 10px -2px rgba(15, 23, 42, 0.06) !important;
+  border: 1px solid #CBD5E1 !important;
+  min-width: 280px !important;
+  max-width: 480px !important;
   background-color: #FFFFFF !important;
   color: #0F172A !important;
   padding: 4px 0 !important;
@@ -455,7 +455,7 @@ p, span, div {
   max-height: 22px !important;
   line-height: 22px !important;
   color: #334155 !important;
-  padding: 0 8px !important;
+  padding: 0 10px !important;
   background-color: transparent !important;
   border-radius: 4px !important;
   margin: 0 4px !important;
@@ -488,18 +488,39 @@ p, span, div {
 .monaco-editor .suggest-widget .monaco-list-row .left {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 0 !important;
   flex: 1 !important;
   min-width: 0 !important;
   overflow: hidden !important;
   height: 100% !important;
 }
 
+/* ── Remove ALL icons from suggestions: Clean text-only display ── */
+.monaco-editor .suggest-widget .monaco-list-row .codicon,
+.monaco-editor .suggest-widget .monaco-list-row .suggest-icon,
+.monaco-editor .suggest-widget .monaco-list-row .icon {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .codicon:before,
+.monaco-editor .suggest-widget .monaco-list-row .codicon:after,
+.monaco-editor .suggest-widget .monaco-list-row .suggest-icon:before,
+.monaco-editor .suggest-widget .monaco-list-row .suggest-icon:after {
+  content: "" !important;
+  display: none !important;
+}
+
 /* Label Name (e.g. implements, import, println) */
 .monaco-editor .suggest-widget .monaco-list-row .label-name {
   color: #0F172A !important;
   font-family: "JetBrains Mono", Consolas, monospace !important;
-  font-size: 12.5px !important;
+  font-size: 13px !important;
   font-weight: 500 !important;
   letter-spacing: -0.01em !important;
   white-space: nowrap !important;
@@ -525,7 +546,7 @@ p, span, div {
   font-size: 11px !important;
   font-weight: 400 !important;
   opacity: 1 !important;
-  margin-left: 12px !important;
+  margin-left: 16px !important;
   white-space: nowrap !important;
   line-height: 22px !important;
 }
@@ -557,128 +578,6 @@ p, span, div {
 .monaco-editor .suggest-widget .monaco-list-row.focused .right span {
   color: #475569 !important;
   font-weight: 500 !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   RICH MNC-GRADE AUTOCOMPLETE ICON SYSTEM (Google Material Symbols)
-   Refined 18x18px container, gentle tinted backgrounds, sharp SVG glyphs
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* Base layout for every icon slot */
-.monaco-editor .suggest-widget .monaco-list-row .codicon,
-.monaco-editor .suggest-widget .monaco-list-row .suggest-icon {
-  font-size: 0 !important;
-  color: transparent !important;
-  width: 17px !important;
-  min-width: 17px !important;
-  height: 17px !important;
-  margin-right: 7px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: 4px !important;
-  vertical-align: middle !important;
-  flex-shrink: 0 !important;
-  background-repeat: no-repeat !important;
-  background-position: center !important;
-  background-size: 13px 13px !important;
-  overflow: hidden !important;
-  line-height: 0 !important;
-  position: relative !important;
-  border: 1px solid transparent !important;
-}
-
-/* Suppress missing unicode character pseudo-elements */
-.monaco-editor .suggest-widget .monaco-list-row .codicon:before,
-.monaco-editor .suggest-widget .monaco-list-row .codicon:after,
-.monaco-editor .suggest-widget .monaco-list-row .suggest-icon:before,
-.monaco-editor .suggest-widget .monaco-list-row .suggest-icon:after {
-  content: "" !important;
-  display: none !important;
-  font-size: 0 !important;
-}
-
-/* ── Fallback: Material Symbol "code" (Slate) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon,
-.monaco-editor .suggest-widget .monaco-list-row .suggest-icon {
-  background-color: #F1F5F9 !important;
-  border-color: #E2E8F0 !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748B'%3E%3Cpath d='M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 1. Keyword: Material Symbol "key" (Vibrant Indigo) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-keyword,
-.monaco-editor .suggest-widget .monaco-list-row .codicon-keyword {
-  background-color: #EEF2FF !important;
-  border-color: #C7D2FE !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234F46E5'%3E%3Cpath d='m12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 2. Class / Struct: Material Symbol "data_object" (Emerald Green) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-class,
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-struct {
-  background-color: #ECFDF5 !important;
-  border-color: #A7F3D0 !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23059669'%3E%3Cpath d='M4 7V4h3V2H4a2 2 0 0 0-2 2v3zm0 10v3a2 2 0 0 0 2 2h3v-2H4v-3zm16 3h-3v2h3a2 2 0 0 0 2-2v-3h-2zm0-16h-3V2h3a2 2 0 0 1 2 2v3h-2zM8 13.5v-1.25A1.25 1.25 0 0 1 9.25 11H10v-1.5h-.75A2.75 2.75 0 0 0 6.5 12.25v.5A2.75 2.75 0 0 0 9.25 15.5H10V14h-.75A1.25 1.25 0 0 1 8 12.75zm8-1v1.25a1.25 1.25 0 0 1-1.25 1.25H14v1.5h.75a2.75 2.75 0 0 0 2.75-2.75v-.5A2.75 2.75 0 0 0 14.75 8.5H14V10h.75A1.25 1.25 0 0 1 16 11.25z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 3. Interface: Material Symbol "account_tree" (Teal) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-interface {
-  background-color: #F0FDFA !important;
-  border-color: #99F6E4 !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230D9488'%3E%3Cpath d='M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3zM4 5h3v4H4zm13 0h3v4h-3zm0 10h3v4h-3z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 4. Type Parameter: Material Symbol "category" (Sky Blue) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-type-parameter {
-  background-color: #F0F9FF !important;
-  border-color: #BAE6FD !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284C7'%3E%3Cpath d='m12 2-5.5 9h11zM3.5 13.5h7v7h-7zm14 0c1.93 0 3.5 1.57 3.5 3.5s-1.57 3.5-3.5 3.5-3.5-1.57-3.5-3.5 1.57-3.5 3.5-3.5'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 5. Function / Method: Material Symbol "functions" (Purple) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-function,
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-method {
-  background-color: #FAF5FF !important;
-  border-color: #E9D5FF !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239333EA'%3E%3Cpath d='M18 4H6v2l6.5 6L6 18v2h12v-3h-7l5-5-5-5h7z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 6. Variable / Field: Material Symbol "variable" (Rose / Coral) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-variable,
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-field {
-  background-color: #FFF1F2 !important;
-  border-color: #FECDD3 !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E11D48'%3E%3Cpath d='m20.2 6.5-3.7 5.5 3.7 5.5h-2.4l-2.6-4-2.6 4H10.2l3.7-5.5-3.7-5.5h2.4l2.6 4 2.6-4zM4 19h4v2H4zm0-14h4v2H4z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 7. Constant / Lock: Material Symbol "lock" (Slate/Blue) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-constant {
-  background-color: #F8FAFC !important;
-  border-color: #CBD5E1 !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'%3E%3Cpath d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2m-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2m3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 8. Property: Material Symbol "widgets" (Amber) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-property {
-  background-color: #FFFBEB !important;
-  border-color: #FDE68A !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23D97706'%3E%3Cpath d='M13 13v8h8v-8zM3 21h8v-8H3zM3 3v8h8V3zm13.66-1.31-5.65 5.65 5.65 5.66 5.66-5.66z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 9. Snippet: Material Symbol "code_blocks" (Orange) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-snippet,
-.monaco-editor .suggest-widget .monaco-list-row .codicon-snippet {
-  background-color: #FFF7ED !important;
-  border-color: #FED7AA !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23EA580C'%3E%3Cpath d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-8 14-4-4 4-4 1.41 1.41L9.83 13l2.58 2.59zm3.59.41L13.17 16l2.58-2.59-2.58-2.58L14.59 9.4l4 4z'/%3E%3C/svg%3E") !important;
-}
-
-/* ── 10. Module: Material Symbol "inventory_2" (Teal/Cyan) ── */
-.monaco-editor .suggest-widget .monaco-list-row .codicon-symbol-module {
-  background-color: #ECFEFF !important;
-  border-color: #A5F3FC !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230891B2'%3E%3Cpath d='M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2m-5 12H9v-2h6zm5-7H4V4h16z'/%3E%3C/svg%3E") !important;
 }
 
 /* Details Popup (Side panel for documentation / full signature) */
